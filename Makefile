@@ -1,5 +1,6 @@
 .DEFAULT_GOAL := help
 SHELL := /bin/bash
+export GOEXPERIMENT := jsonv2
 
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "v0.0.0")
 LDFLAGS := -s -w -X main.version=$(VERSION)

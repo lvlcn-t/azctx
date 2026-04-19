@@ -3,8 +3,8 @@ project_name: azctx
 snapshot:
   version_template: "commit-{{ .ShortCommit }}"
 builds:
-  - env: [ CGO_ENABLED=0 ]
-    main: ./cmd/app
+  - env: [ CGO_ENABLED=0, GOEXPERIMENT=jsonv2 ]
+    main: .
     ldflags:
       - -s -w -X main.version={{ .Version }}
       - -extldflags "-static"

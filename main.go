@@ -11,6 +11,7 @@ import (
 // version is set at build time using ldflags="-X main.version=$(VERSION)"
 var version string
 
+// main configures build metadata and executes the root command.
 func main() {
 	cmd.AzCtx.Version = cmp.Or(version, cmd.Version)
 
