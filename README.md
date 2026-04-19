@@ -35,15 +35,39 @@ context and syncs the Azure CLI session by calling `az login` and
 
 ### Binary
 
-Download the latest release binary for your platform from the
-[releases page](../../releases) and place it on your `PATH`.
+Download the archive for your platform from the
+[releases page](../../releases), extract the binary, and place it on
+your `PATH`.
+
+**Linux**:
 
 ```bash
-# Example for Linux amd64
-curl -sL https://github.com/lvlcn-t/azctx/releases/latest/download/azctx_linux_amd64 \
-  -o ~/.local/bin/azctx
+ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+curl -sL "https://github.com/lvlcn-t/azctx/releases/latest/download/azctx_linux_${ARCH}.tar.gz" \
+  | tar -xz -C ~/.local/bin azctx
 chmod +x ~/.local/bin/azctx
 ```
+
+**macOS**:
+
+```bash
+ARCH=$(uname -m | sed 's/x86_64/amd64/')
+curl -sL "https://github.com/lvlcn-t/azctx/releases/latest/download/azctx_darwin_${ARCH}.tar.gz" \
+  | tar -xz -C /usr/local/bin azctx
+```
+
+**Windows** (PowerShell):
+
+```powershell
+$arch = $env:PROCESSOR_ARCHITECTURE.ToLower()
+$url = "https://github.com/lvlcn-t/azctx/releases/latest/download/azctx_windows_$arch.tar.gz"
+Invoke-WebRequest $url -OutFile azctx.tar.gz
+tar -xf azctx.tar.gz azctx.exe
+Move-Item azctx.exe "$env:LOCALAPPDATA\Microsoft\WindowsApps\azctx.exe"
+```
+
+Verify integrity by checking the downloaded archive against
+`azctx_*_checksums.txt` published alongside each release.
 
 ### Container Image
 
