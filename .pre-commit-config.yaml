@@ -23,13 +23,6 @@ repos:
       - id: golangci-lint-repo-mod
         args: [ --hook:env:GOEXPERIMENT=jsonv2, --config, .golangci.yaml, --, --fix ]
 
-  - repo: https://github.com/norwoodj/helm-docs
-    rev: v1.14.2
-    hooks:
-      - id: helm-docs
-        args:
-          - --chart-search-root=chart
-
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.30.1
     hooks:
