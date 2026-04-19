@@ -1,6 +1,7 @@
 FROM mcr.microsoft.com/azure-cli:2.85.0
 
-COPY azctx /usr/local/bin/azctx
+ARG TARGETPLATFORM
+COPY ${TARGETPLATFORM}/azctx /usr/local/bin/azctx
 
 USER nonroot
 

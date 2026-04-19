@@ -13,17 +13,17 @@ builds:
     goarch:
       - amd64
       - arm64
-dockers:
-  - image_templates:
-      - "ghcr.io/lvlcn-t/azctx:{{ .Version }}"
-    dockerfile: Dockerfile
-    build_flag_templates:
-      - --label=org.opencontainers.image.title={{ .ProjectName }}
-      - --label=org.opencontainers.image.description="This is a pre-release
-        version. Do not use this in production!"
-      - --label=org.opencontainers.image.url=https://lvlcn-t.dev
-      - --label=org.opencontainers.image.source=https://github.com/lvlcn-t/azctx
-      - --label=org.opencontainers.image.version={{ .Version }}
-      - --label=org.opencontainers.image.created={{ .Timestamp }}
-      - --label=org.opencontainers.image.revision={{ .FullCommit }}
-      - --label=org.opencontainers.image.licenses="MIT"
+dockers_v2:
+  - images:
+      - "ghcr.io/lvlcn-t/azctx"
+    tags:
+      - "{{ .Version }}"
+    labels:
+      "org.opencontainers.image.title": "{{ .ProjectName }}"
+      "org.opencontainers.image.description": "This is a pre-release version. Do not use this in production!"
+      "org.opencontainers.image.url": "https://lvlcn-t.dev"
+      "org.opencontainers.image.source": "https://github.com/lvlcn-t/azctx"
+      "org.opencontainers.image.version": "{{ .Version }}"
+      "org.opencontainers.image.created": "{{ .Timestamp }}"
+      "org.opencontainers.image.revision": "{{ .FullCommit }}"
+      "org.opencontainers.image.licenses": "MIT"

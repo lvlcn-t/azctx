@@ -1,7 +1,8 @@
 version: 2
 project_name: azctx
 builds:
-  - env: [ CGO_ENABLED=0, GOEXPERIMENT=jsonv2 ]
+  - id: linux
+    env: [ CGO_ENABLED=0, GOEXPERIMENT=jsonv2 ]
     main: .
     ldflags:
       - -s -w -X main.version={{ .Tag }}
@@ -11,22 +12,36 @@ builds:
     goarch:
       - amd64
       - arm64
-dockers:
-  - image_templates:
-      - "ghcr.io/lvlcn-t/azctx:latest"
-      - "ghcr.io/lvlcn-t/azctx:{{ .Tag }}"
-      - "ghcr.io/lvlcn-t/azctx:v{{ .Major }}.{{ .Minor }}"
-      - "ghcr.io/lvlcn-t/azctx:v{{ .Major }}"
-    dockerfile: Dockerfile
-    build_flag_templates:
-      - --label=org.opencontainers.image.title={{ .ProjectName }}
-      - --label=org.opencontainers.image.description={{ .ProjectName }}
-      - --label=org.opencontainers.image.url=https://lvlcn-t.dev
-      - --label=org.opencontainers.image.source=https://github.com/lvlcn-t/azctx
-      - --label=org.opencontainers.image.version={{ .Version }}
-      - --label=org.opencontainers.image.created={{ .Timestamp }}
-      - --label=org.opencontainers.image.revision={{ .FullCommit }}
-      - --label=org.opencontainers.image.licenses="MIT"
+  - id: darwin-windows
+    env: [ CGO_ENABLED=0, GOEXPERIMENT=jsonv2 ]
+    main: .
+    ldflags:
+      - -s -w -X main.version={{ .Tag }}
+    goos:
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+dockers_v2:
+  - ids:
+      - linux
+    images:
+      - "ghcr.io/lvlcn-t/azctx"
+    tags:
+      - "latest"
+      - "{{ .Tag }}"
+      - "v{{ .Major }}.{{ .Minor }}"
+      - "v{{ .Major }}"
+    labels:
+      "org.opencontainers.image.title": "{{ .ProjectName }}"
+      "org.opencontainers.image.description": "{{ .ProjectName }}"
+      "org.opencontainers.image.url": "https://lvlcn-t.dev"
+      "org.opencontainers.image.source": "https://github.com/lvlcn-t/azctx"
+      "org.opencontainers.image.version": "{{ .Version }}"
+      "org.opencontainers.image.created": "{{ .Timestamp }}"
+      "org.opencontainers.image.revision": "{{ .FullCommit }}"
+      "org.opencontainers.image.licenses": "MIT"
 
 # nfpms:
 #   - maintainer: lvlcn-t <75443136+lvlcn-t@users.noreply.github.com>
