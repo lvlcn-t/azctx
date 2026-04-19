@@ -1,6 +1,6 @@
 name: Continuous Integration
 
-on: [push]
+on: [ push ]
 
 permissions:
   actions: read
@@ -15,6 +15,3 @@ jobs:
       go_version_file: go.mod
       go_releaser_config: .goreleaser-ci.yaml
     secrets: inherit
-
-  helm:
-    uses: lvlcn-t/meta/.github/workflows/ci-helm.yml@main

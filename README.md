@@ -2,8 +2,8 @@
 
 <!-- markdownlint-disable-next-line -->
 <p align="center">
-    <a href="/../../commits/" title="Last Commit"><img alt="Last Commit" src="https://img.shields.io/github/last-commit/lvlcn-t/meta?style=flat"></a>
-    <a href="/../../issues" title="Open Issues"><img alt="Open Issues" src="https://img.shields.io/github/issues/lvlcn-t/meta?style=flat"></a>
+    <a href="/../../commits/" title="Last Commit"><img alt="Last Commit" src="https://img.shields.io/github/last-commit/lvlcn-t/azctx?style=flat"></a>
+    <a href="/../../issues" title="Open Issues"><img alt="Open Issues" src="https://img.shields.io/github/issues/lvlcn-t/azctx?style=flat"></a>
 </p>
 
 - [About this component](#about-this-component)
@@ -68,9 +68,9 @@ The application itself and all end-user facing content will be made available in
 
 The following channels are available for discussions, feedback, and support requests:
 
-| Type       | Channel                                                                                                                   |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------- |
-| **Issues** | [![General Discussion](https://img.shields.io/github/issues/lvlcn-t/meta?style=flat-square)](/../../issues/new/choose) |
+| Type       | Channel                                                                                                                 |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **Issues** | [![General Discussion](https://img.shields.io/github/issues/lvlcn-t/azctx?style=flat-square)](/../../issues/new/choose) |
 
 ## How to Contribute
 

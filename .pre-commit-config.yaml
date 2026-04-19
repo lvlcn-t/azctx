@@ -4,23 +4,23 @@ repos:
       - id: go-generate-repo
         name: go generate
         entry: go
-        args: [generate, ./...]
+        args: [ generate, ./... ]
         language: system
-        types: [go]
+        types: [ go ]
         pass_filenames: false
         always_run: true
 
   - repo: https://github.com/tekwizely/pre-commit-golang
-    rev: v1.0.0-rc.1
+    rev: v1.0.0-rc.4
     hooks:
       - id: go-mod-tidy-repo
       - id: go-test-repo-mod
-        args: [-race, -count=1, -test.short]
+        args: [ -race, -count=1, -test.short ]
       - id: go-vet-repo-mod
       - id: go-fumpt-repo
-        args: [-l, -w]
+        args: [ -l, -w ]
       - id: golangci-lint-repo-mod
-        args: [--config, .golangci.yaml, --, --fix]
+        args: [ --config, .golangci.yaml, --, --fix ]
 
   - repo: https://github.com/norwoodj/helm-docs
     rev: v1.14.2
@@ -29,9 +29,7 @@ repos:
         args:
           - --chart-search-root=chart
 
-  # If this is used for business, a free license is required.
-  # It can be obtained from https://gitleaks.io/products.html
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.24.3
+    rev: v8.30.1
     hooks:
       - id: gitleaks

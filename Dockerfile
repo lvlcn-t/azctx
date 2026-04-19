@@ -1,4 +1,4 @@
-FROM alpine:3.23 as prep
+FROM alpine:3.23 AS prep
 
 RUN apk add --no-cache ca-certificates
 RUN adduser \
@@ -15,8 +15,8 @@ COPY --from=prep /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 # ! Adjust the binary name to match the name of the binary that is built
 # In case of a Go binary, the binary name is the project name defined in
 # your .goreleaser.yml configuration file
-COPY meta ./
+COPY azctx ./
 
 USER appuser
 
-ENTRYPOINT ["/meta"]
+ENTRYPOINT ["/azctx"]
