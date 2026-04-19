@@ -53,7 +53,8 @@ chmod +x ~/.local/bin/azctx
 ```bash
 ARCH=$(uname -m | sed 's/x86_64/amd64/')
 curl -sL "https://github.com/lvlcn-t/azctx/releases/latest/download/azctx_darwin_${ARCH}.tar.gz" \
-  | tar -xz -C /usr/local/bin azctx
+  | tar -xz -C ~/.local/bin azctx
+chmod +x ~/.local/bin/azctx
 ```
 
 **Windows** (PowerShell):
