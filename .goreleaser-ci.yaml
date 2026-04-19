@@ -27,6 +27,3 @@ dockers_v2:
       "org.opencontainers.image.created": "{{ .Timestamp }}"
       "org.opencontainers.image.revision": "{{ .FullCommit }}"
       "org.opencontainers.image.licenses": "MIT"
-    sbom: false
-    flags:
-      - "--provenance=false"
