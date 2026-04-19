@@ -1,53 +1,181 @@
-# Project Name<!-- omit from toc -->
+# azctx<!-- omit from toc -->
 
-<!-- markdownlint-disable-next-line -->
+<!-- markdownlint-disable MD033 -->
 <p align="center">
     <a href="/../../commits/" title="Last Commit"><img alt="Last Commit" src="https://img.shields.io/github/last-commit/lvlcn-t/azctx?style=flat"></a>
     <a href="/../../issues" title="Open Issues"><img alt="Open Issues" src="https://img.shields.io/github/issues/lvlcn-t/azctx?style=flat"></a>
 </p>
+<!-- markdownlint-enable MD033 -->
 
 - [About this component](#about-this-component)
 - [Installation](#installation)
   - [Binary](#binary)
   - [Container Image](#container-image)
-  - [Helm](#helm)
 - [Usage](#usage)
-  - [Image](#image)
+  - [Config file](#config-file)
+  - [Commands](#commands)
+  - [Output formats](#output-formats)
+  - [Typical workflow](#typical-workflow)
 - [Code of Conduct](#code-of-conduct)
 - [Working Language](#working-language)
 - [Support and Feedback](#support-and-feedback)
 - [How to Contribute](#how-to-contribute)
 - [Licensing](#licensing)
 
-_tbd_
-
 ## About this component
 
-_tbd_
+`azctx` is a CLI tool for managing Azure CLI contexts, modelled after
+[`kubectx`](https://github.com/ahmetb/kubectx). It maintains its own
+composable config file that maps named contexts to a tenant, a credential,
+and an optional subscription. Running `azctx use <name>` switches the active
+context and syncs the Azure CLI session by calling `az login` and
+`az account set`.
 
 ## Installation
 
-_tbd_
-
 ### Binary
 
-_tbd_
+Download the latest release binary for your platform from the
+[releases page](../../releases) and place it on your `PATH`.
+
+```bash
+# Example for Linux amd64
+curl -sL https://github.com/lvlcn-t/azctx/releases/latest/download/azctx_linux_amd64 \
+  -o ~/.local/bin/azctx
+chmod +x ~/.local/bin/azctx
+```
 
 ### Container Image
 
-_tbd_
+Pre-built images are published to GitHub Container Registry on every release.
+The image is based on `mcr.microsoft.com/azure-cli` so `az` is available and
+`azctx use` works inside the container. It runs as the `nonroot` user
+(uid 65532) that the base image ships for this purpose.
 
-### Helm
+```bash
+docker pull ghcr.io/lvlcn-t/azctx:latest
+```
 
-_tbd_
+Available tags: `latest`, `vMAJOR`, `vMAJOR.MINOR`, and the full semver tag.
+
+Mount your azctx config and Azure CLI state directories so the container can
+read your contexts and persist the login session:
+
+```bash
+docker run --rm \
+  -v ~/.azctx:/home/nonroot/.azctx \
+  -v ~/.azure:/home/nonroot/.azure \
+  ghcr.io/lvlcn-t/azctx:latest use dev-west
+```
+
+Both directories must be owned by or writable by uid 65532 on the host.
+Alternatively, use the `AZCTX` and `AZURE_CONFIG_DIR` environment variables
+to point the container at different paths:
+
+```bash
+docker run --rm \
+  -e AZCTX=/config/azctx.yaml \
+  -e AZURE_CONFIG_DIR=/config/azure \
+  -v /my/config:/config \
+  ghcr.io/lvlcn-t/azctx:latest use dev-west
+```
 
 ## Usage
 
-_tbd_
+### Config file
 
-### Image
+`azctx` reads from `~/.azctx/config.yaml` by default. Set the `AZCTX`
+environment variable to a colon-separated list of paths to load and merge
+multiple files. Merged entries follow **first-wins** semantics; writes always
+go to the first existing file in the list.
 
-_tbd_
+A config file has three sections — tenants, credentials, and contexts:
+
+```yaml
+tenants:
+  - name: dev
+    id: 00000000-0000-0000-0000-000000000000
+
+credentials:
+  - name: ci-sp
+    type: service-principal
+    client-id: 11111111-1111-1111-1111-111111111111
+    client-secret: super-secret
+
+contexts:
+  - name: dev
+    tenant: dev
+    credential: ci-sp
+    subscription: 22222222-2222-2222-2222-222222222222
+
+current-context: dev
+```
+
+Supported credential types and their required fields:
+
+| Type                | Required fields                                            |
+| ------------------- | ---------------------------------------------------------- |
+| `service-principal` | `client-id` + `client-secret` or `client-certificate-path` |
+| `user`              | _(none — interactive login)_                               |
+| `managed-identity`  | _(none)_                                                   |
+| `oidc`              | `client-id` + `federated-token-file`                       |
+
+### Commands
+
+| Command                                      | Alias             | Description                                        |
+| -------------------------------------------- | ----------------- | -------------------------------------------------- |
+| `use NAME`                                   | `use-context`     | Switch active context and sync Azure CLI state     |
+| `current`                                    | `current-context` | Show the active context name                       |
+| `list`                                       | `get-contexts`    | List all contexts                                  |
+| `get [NAME]`                                 | `get-context`     | Show details for one context (defaults to current) |
+| `set-tenant NAME --id ID`                    |                   | Create or update a tenant entry                    |
+| `set-credential NAME --type TYPE`            |                   | Create or update a credential entry                |
+| `set-context NAME --tenant T --credential C` |                   | Create or update a context entry                   |
+| `rename-context OLD NEW`                     |                   | Rename a context                                   |
+| `delete-context NAME`                        | `unset-context`   | Remove a context from config                       |
+| `view`                                       |                   | Display the merged config                          |
+
+### Output formats
+
+Commands that read config accept `-o text` (default), `-o table`, and
+`-o json`. The `current` command also accepts `--verbose` / `-v` to print
+full context details instead of just the name.
+
+### Typical workflow
+
+First, register the building blocks once:
+
+```bash
+azctx set-tenant dev --id 00000000-0000-0000-0000-000000000000
+
+azctx set-credential ci-sp \
+  --type service-principal \
+  --client-id 11111111-1111-1111-1111-111111111111 \
+  --client-secret super-secret
+```
+
+Then create a context that ties them together:
+
+```bash
+azctx set-context dev \
+  --tenant dev \
+  --credential ci-sp \
+  --subscription 22222222-2222-2222-2222-222222222222
+```
+
+Switch to it — this calls `az login` and `az account set` automatically:
+
+```bash
+azctx use dev
+```
+
+Inspect what you have:
+
+```bash
+azctx current          # prints "dev"
+azctx list -o table    # all contexts with status column
+azctx get dev -o json
+```
 
 ## Code of Conduct
 
