@@ -51,7 +51,7 @@ The config path honours `$AZURE_CONFIG_DIR`.
 
 ## Config file behaviour
 
-- Default path: `~/.azctx/config.yaml`
+- Default path: `~/.config/azctx/config.yaml`
 - Override with `$AZCTX` (colon-separated list of paths on Unix)
 - Multiple paths are merged with **first-wins** semantics
 - Writes always go to the first existing file, or the last listed path

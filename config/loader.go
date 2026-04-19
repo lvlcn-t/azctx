@@ -15,7 +15,8 @@ import (
 
 const (
 	ConfigEnvVar = "AZCTX"
-	configFile   = "azctx.yaml"
+	configDir    = "azctx"
+	configFile   = "config.yaml"
 )
 
 // Loader loads azctx config files.
@@ -86,7 +87,7 @@ func (l *Loader) DefaultPath() (string, error) {
 		return "", fmt.Errorf("determine user config directory: %w", err)
 	}
 
-	return filepath.Join(dir, configFile), nil
+	return filepath.Join(dir, configDir, configFile), nil
 }
 
 func (l *Loader) readConfig(path string) (Config, error) {

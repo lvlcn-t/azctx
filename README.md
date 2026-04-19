@@ -88,7 +88,7 @@ read your contexts and persist the login session:
 
 ```bash
 docker run --rm \
-  -v ~/.azctx:/home/nonroot/.azctx \
+  -v ~/.config/azctx:/home/nonroot/.config/azctx \
   -v ~/.azure:/home/nonroot/.azure \
   ghcr.io/lvlcn-t/azctx:latest use dev-west
 ```
@@ -109,7 +109,7 @@ docker run --rm \
 
 ### Config file
 
-`azctx` reads from `~/.azctx/config.yaml` by default. Set the `AZCTX`
+`azctx` reads from `~/.config/azctx/config.yaml` by default. Set the `AZCTX`
 environment variable to a colon-separated list of paths to load and merge
 multiple files. Merged entries follow **first-wins** semantics; writes always
 go to the first existing file in the list.
