@@ -41,7 +41,7 @@ type Credential struct {
 	Name                  string         `yaml:"name" json:"name"`
 	Type                  CredentialType `yaml:"type" json:"type"`
 	ClientID              string         `yaml:"client-id,omitempty" json:"clientId,omitempty"`
-	ClientSecret          string         `yaml:"client-secret,omitempty" json:"clientSecret,omitempty"` //nolint:gosec // Intentional to mirror kubeconfig-like plain secret behavior.
+	ClientSecret          string         `yaml:"client-secret,omitempty" json:"clientSecret,omitempty"`
 	ClientCertificatePath string         `yaml:"client-certificate-path,omitempty" json:"clientCertificatePath,omitempty"`
 	FederatedTokenFile    string         `yaml:"federated-token-file,omitempty" json:"federatedTokenFile,omitempty"`
 }

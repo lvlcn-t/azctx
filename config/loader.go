@@ -261,7 +261,6 @@ func DefaultPath() (string, error) {
 
 // readConfig reads and decodes one config file.
 func readConfig(path string) (Config, bool, error) {
-	//nolint:gosec // Path comes from AZCTX or default config location by design.
 	raw, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return Config{}, false, nil
