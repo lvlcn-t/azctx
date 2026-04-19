@@ -18,6 +18,7 @@ jobs:
     with:
       go_version_file: go.mod
       golangci_config: .golangci.yaml
+      env: GOEXPERIMENT=jsonv2
       private_go_server: ""
       before_tests: ""
       additional_args: -v
