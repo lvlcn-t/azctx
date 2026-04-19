@@ -7,40 +7,52 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// setCredentialCmd creates or updates a credential entry in config.
-var setCredentialCmd = &cobra.Command{ //nolint:gochecknoglobals // Cobra command definition
-	Use:   "set-credential NAME",
-	Short: "Set a credential entry in azctx config",
-	Long:  "Set a credential entry in azctx config.",
-	Example: `  azctx set-credential ci-sp --type service-principal \
+type setCredentialCmd struct {
+	loader config.Loader
+	writer config.Writer
+}
+
+// newSetCredentialCmd creates or updates a credential entry in config.
+func newSetCredentialCmd() *cobra.Command {
+	command := &setCredentialCmd{
+		loader: config.NewLoader(),
+		writer: config.NewWriter(),
+	}
+
+	cmd := &cobra.Command{
+		Use:   "set-credential NAME",
+		Short: "Set a credential entry in azctx config",
+		Long:  "Set a credential entry in azctx config.",
+		Example: `  azctx set-credential ci-sp --type service-principal \
     --client-id 11111111-1111-1111-1111-111111111111 \
     --client-secret super-secret`,
-	RunE:              runSetCredential,
-	DisableAutoGenTag: true,
-	Args:              cobra.ExactArgs(1),
-}
+		RunE:              command.run,
+		DisableAutoGenTag: true,
+		Args:              cobra.ExactArgs(1),
+	}
 
-func init() { //nolint:gochecknoinits // Cobra command setup
-	setCredentialCmd.Flags().String("type", "", "Credential type: service-principal|user|managed-identity|oidc")
-	setCredentialCmd.Flags().String("client-id", "", "Client ID")
-	setCredentialCmd.Flags().String("client-secret", "", "Client secret")
-	setCredentialCmd.Flags().String("client-certificate-path", "", "Client certificate path")
-	setCredentialCmd.Flags().String("federated-token-file", "", "Path to federated token file")
+	cmd.Flags().String("type", "", "Credential type: service-principal|user|managed-identity|oidc")
+	cmd.Flags().String("client-id", "", "Client ID")
+	cmd.Flags().String("client-secret", "", "Client secret")
+	cmd.Flags().String("client-certificate-path", "", "Client certificate path")
+	cmd.Flags().String("federated-token-file", "", "Path to federated token file")
 
-	if err := setCredentialCmd.MarkFlagRequired("type"); err != nil {
+	if err := cmd.MarkFlagRequired("type"); err != nil {
 		panic(fmt.Errorf("mark type flag required: %w", err))
 	}
+
+	return cmd
 }
 
-// runSetCredential executes the set-credential command.
-func runSetCredential(cmd *cobra.Command, args []string) error {
-	loaded, err := config.Load()
+// run executes the set-credential command.
+func (c *setCredentialCmd) run(cmd *cobra.Command, args []string) error {
+	store, err := c.loader.Load()
 	if err != nil {
 		return err
 	}
 
-	credentialName := args[0]
-	if credentialName == "" {
+	credName := args[0]
+	if credName == "" {
 		return fmt.Errorf("credential name must not be empty")
 	}
 
@@ -49,7 +61,7 @@ func runSetCredential(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("read type flag: %w", err)
 	}
 
-	credentialType, err := config.ParseCredentialType(typeRaw)
+	credType, err := config.ParseCredentialType(typeRaw)
 	if err != nil {
 		return err
 	}
@@ -64,47 +76,46 @@ func runSetCredential(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("read client-secret flag: %w", err)
 	}
 
-	certificatePath, err := cmd.Flags().GetString("client-certificate-path")
+	certPath, err := cmd.Flags().GetString("client-certificate-path")
 	if err != nil {
 		return fmt.Errorf("read client-certificate-path flag: %w", err)
 	}
 
-	federatedTokenFile, err := cmd.Flags().GetString("federated-token-file")
+	fedTokenFile, err := cmd.Flags().GetString("federated-token-file")
 	if err != nil {
 		return fmt.Errorf("read federated-token-file flag: %w", err)
 	}
 
 	nextCredential := config.Credential{
-		Name:                  credentialName,
-		Type:                  credentialType,
+		Name:                  credName,
+		Type:                  credType,
 		ClientID:              clientID,
 		ClientSecret:          clientSecret,
-		ClientCertificatePath: certificatePath,
-		FederatedTokenFile:    federatedTokenFile,
+		ClientCertificatePath: certPath,
+		FederatedTokenFile:    fedTokenFile,
 	}
 
-	if err := nextCredential.Validate(); err != nil {
+	if err = nextCredential.Validate(); err != nil {
 		return err
 	}
 
 	wasExisting := false
-	if _, found := loaded.Config.CredentialByName(credentialName); found {
+	if _, found := store.Config.CredentialByName(credName); found {
 		wasExisting = true
 	}
 
-	writePath := loaded.PathForCredential(credentialName)
-	fileConfig := loaded.FileConfig(writePath)
-	fileConfig.UpsertCredential(&nextCredential)
-
-	if err := config.Write(writePath, &fileConfig); err != nil {
+	path := store.PathForCredential(credName)
+	cfg := store.FileConfig(path)
+	cfg.UpsertCredential(&nextCredential)
+	if err = c.writer.Write(path, &cfg); err != nil {
 		return err
 	}
 
 	if wasExisting {
-		_, writeErr := fmt.Fprintf(cmd.OutOrStdout(), "Credential %q modified.\n", credentialName)
-		return writeErr
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Credential %q modified.\n", credName)
+		return err
 	}
 
-	_, writeErr := fmt.Fprintf(cmd.OutOrStdout(), "Credential %q created.\n", credentialName)
-	return writeErr
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Credential %q created.\n", credName)
+	return err
 }

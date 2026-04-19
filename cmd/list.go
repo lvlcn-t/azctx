@@ -8,24 +8,32 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// listCmd lists all configured contexts.
-var listCmd = &cobra.Command{
-	Use:               "list",
-	Aliases:           []string{"get-contexts"},
-	Short:             "List all available Azure contexts",
-	Long:              "List all available contexts from the merged azctx config.",
-	Example:           "  azctx list\n  azctx list -o table\n  azctx list -o json",
-	RunE:              runList,
-	DisableAutoGenTag: true,
+type listCmd struct {
+	loader config.Loader
 }
 
-func init() { //nolint:gochecknoinits // Cobra command setup
-	bindOutputFlag(listCmd)
+// newListCmd lists all configured contexts.
+func newListCmd() *cobra.Command {
+	command := &listCmd{loader: config.NewLoader()}
+
+	cmd := &cobra.Command{ //nolint:exhaustruct // Cobra command definition
+		Use:               "list",
+		Aliases:           []string{"get-contexts"},
+		Short:             "List all available Azure contexts",
+		Long:              "List all available contexts from the merged azctx config.",
+		Example:           "  azctx list\n  azctx list -o table\n  azctx list -o json",
+		RunE:              command.run,
+		DisableAutoGenTag: true,
+	}
+
+	bindOutputFlag(cmd)
+
+	return cmd
 }
 
-// runList executes the list command.
-func runList(cmd *cobra.Command, _ []string) error {
-	loaded, err := config.Load()
+// run executes the list command.
+func (command *listCmd) run(cmd *cobra.Command, _ []string) error {
+	store, err := command.loader.Load()
 	if err != nil {
 		return err
 	}
@@ -35,9 +43,9 @@ func runList(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	views := make([]contextView, 0, len(loaded.Config.Contexts))
-	for _, context := range loaded.Config.Contexts {
-		views = append(views, buildContextView(&loaded.Config, context, loaded.Config.CurrentContext))
+	views := make([]contextView, 0, len(store.Config.Contexts))
+	for _, context := range store.Config.Contexts {
+		views = append(views, buildContextView(&store.Config, context, store.Config.CurrentContext))
 	}
 
 	switch format {

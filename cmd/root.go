@@ -13,14 +13,14 @@ var AzCtx = &cobra.Command{
 }
 
 func init() { //nolint:gochecknoinits // This is the standard way to set up Cobra commands
-	AzCtx.AddCommand(currentCmd)
-	AzCtx.AddCommand(deleteContextCmd)
-	AzCtx.AddCommand(getCmd)
-	AzCtx.AddCommand(listCmd)
-	AzCtx.AddCommand(renameContextCmd)
-	AzCtx.AddCommand(setContextCmd)
-	AzCtx.AddCommand(setCredentialCmd)
-	AzCtx.AddCommand(setTenantCmd)
-	AzCtx.AddCommand(useCmd)
-	AzCtx.AddCommand(viewCmd)
+	AzCtx.AddCommand(newCurrentCmd())
+	AzCtx.AddCommand(newDeleteCtxCmd())
+	AzCtx.AddCommand(newGetCmd())
+	AzCtx.AddCommand(newListCmd())
+	AzCtx.AddCommand(newRenameCtxCmd())
+	AzCtx.AddCommand(newSetCtxCmd())
+	AzCtx.AddCommand(newSetCredentialCmd())
+	AzCtx.AddCommand(newSetTenantCmd())
+	AzCtx.AddCommand(newUseCmd())
+	AzCtx.AddCommand(newViewCmd())
 }

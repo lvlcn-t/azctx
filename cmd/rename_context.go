@@ -7,20 +7,34 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// renameContextCmd renames an existing context entry in config.
-var renameContextCmd = &cobra.Command{ //nolint:gochecknoglobals // Cobra command definition
-	Use:               "rename-context OLD_NAME NEW_NAME",
-	Short:             "Rename a context in azctx config",
-	Long:              "Rename a context in azctx config.",
-	Example:           "  azctx rename-context staging dev",
-	RunE:              runRenameContext,
-	DisableAutoGenTag: true,
-	Args:              cobra.ExactArgs(2),
+type renameCtxCmd struct {
+	loader config.Loader
+	writer config.Writer
 }
 
-// runRenameContext executes the rename-context command.
-func runRenameContext(cmd *cobra.Command, args []string) error {
-	loaded, err := config.Load()
+// newRenameCtxCmd renames an existing context entry in config.
+func newRenameCtxCmd() *cobra.Command {
+	command := &renameCtxCmd{
+		loader: config.NewLoader(),
+		writer: config.NewWriter(),
+	}
+
+	renameContextCmd := &cobra.Command{ //nolint:exhaustruct // Cobra command definition
+		Use:               "rename-context OLD_NAME NEW_NAME",
+		Short:             "Rename a context in azctx config",
+		Long:              "Rename a context in azctx config.",
+		Example:           "  azctx rename-context staging dev",
+		RunE:              command.run,
+		DisableAutoGenTag: true,
+		Args:              cobra.ExactArgs(2),
+	}
+
+	return renameContextCmd
+}
+
+// run executes the rename-context command.
+func (c *renameCtxCmd) run(cmd *cobra.Command, args []string) error {
+	store, err := c.loader.Load()
 	if err != nil {
 		return err
 	}
@@ -28,35 +42,35 @@ func runRenameContext(cmd *cobra.Command, args []string) error {
 	oldName := args[0]
 	newName := args[1]
 
-	if _, found := loaded.Config.ContextByName(oldName); !found {
+	if _, found := store.Config.ContextByName(oldName); !found {
 		return fmt.Errorf("cannot rename context %q, it does not exist", oldName)
 	}
 
-	if _, found := loaded.Config.ContextByName(newName); found {
+	if _, found := store.Config.ContextByName(newName); found {
 		return fmt.Errorf("cannot rename context %q, context %q already exists", oldName, newName)
 	}
 
-	writePath := loaded.PathForContext(oldName)
-	fileConfig := loaded.FileConfig(writePath)
+	path := store.PathForContext(oldName)
+	cfg := store.FileConfig(path)
 
-	if renamed := fileConfig.RenameContext(oldName, newName); !renamed {
-		return fmt.Errorf("cannot rename context %q, it does not exist in %q", oldName, writePath)
+	if renamed := cfg.RenameContext(oldName, newName); !renamed {
+		return fmt.Errorf("cannot rename context %q, it does not exist in %q", oldName, path)
 	}
 
-	if fileConfig.CurrentContext == oldName {
-		fileConfig.CurrentContext = newName
+	if cfg.CurrentContext == oldName {
+		cfg.CurrentContext = newName
 	}
 
-	if err := config.Write(writePath, &fileConfig); err != nil {
+	if err := c.writer.Write(path, &cfg); err != nil {
 		return err
 	}
 
-	if loaded.Config.CurrentContext == oldName && writePath != loaded.PathForCurrentContext() {
-		currentPath := loaded.PathForCurrentContext()
-		currentConfig := loaded.FileConfig(currentPath)
+	if store.Config.CurrentContext == oldName && path != store.PathForCurrentContext() {
+		currentPath := store.PathForCurrentContext()
+		currentConfig := store.FileConfig(currentPath)
 		currentConfig.CurrentContext = newName
 
-		if err := config.Write(currentPath, &currentConfig); err != nil {
+		if err := c.writer.Write(currentPath, &currentConfig); err != nil {
 			return err
 		}
 	}

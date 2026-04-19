@@ -2,44 +2,43 @@ package config
 
 import (
 	"fmt"
-	"os"
+	"io/fs"
 	"path/filepath"
 
+	"github.com/spf13/afero"
 	"go.yaml.in/yaml/v4"
 )
 
-const (
-	configDirectoryMode os.FileMode = 0o700
-	configFileMode      os.FileMode = 0o600
-)
+type Writer struct {
+	fsys afero.Fs
+}
+
+func NewWriter() Writer {
+	return Writer{
+		fsys: afero.NewOsFs(),
+	}
+}
 
 // Write encodes and writes config data to a file.
-func Write(path string, cfg *Config) error {
+func (w *Writer) Write(path string, cfg *Config) error {
 	if cfg == nil {
 		cfg = &Config{}
 	}
 
-	if err := ensureParentDirectory(path); err != nil {
-		return err
+	const dirMode fs.FileMode = 0o700
+	parent := filepath.Dir(path)
+	if err := w.fsys.MkdirAll(parent, dirMode); err != nil {
+		return fmt.Errorf("create config directory %q: %w", parent, err)
 	}
 
-	encoded, err := yaml.Marshal(cfg)
+	b, err := yaml.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("marshal config: %w", err)
 	}
 
-	if err := os.WriteFile(path, encoded, configFileMode); err != nil {
+	const fileMode fs.FileMode = 0o600
+	if err := afero.WriteFile(w.fsys, path, b, fileMode); err != nil {
 		return fmt.Errorf("write config %q: %w", path, err)
-	}
-
-	return nil
-}
-
-// ensureParentDirectory creates the destination directory when needed.
-func ensureParentDirectory(path string) error {
-	parentDirectory := filepath.Dir(path)
-	if err := os.MkdirAll(parentDirectory, configDirectoryMode); err != nil {
-		return fmt.Errorf("create config directory %q: %w", parentDirectory, err)
 	}
 
 	return nil

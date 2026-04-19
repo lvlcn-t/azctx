@@ -3,30 +3,43 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/lvlcn-t/azctx/az"
 	"github.com/lvlcn-t/azctx/config"
 	"github.com/lvlcn-t/azctx/output"
 	"github.com/spf13/cobra"
 )
 
-// getCmd prints details for one context.
-var getCmd = &cobra.Command{
-	Use:               "get [name]",
-	Aliases:           []string{"get-context"},
-	Short:             "Get information about a context",
-	Long:              "Get information about one context. When NAME is omitted, it returns the current context.",
-	Example:           "  azctx get\n  azctx get prod -o json\n  azctx get prod -o table",
-	RunE:              runGet,
-	DisableAutoGenTag: true,
-	Args:              cobra.MaximumNArgs(1),
+type getCmd struct {
+	loader config.Loader
+	az     func() (az.CLI, error)
 }
 
-func init() { //nolint:gochecknoinits // Cobra command setup
-	bindOutputFlag(getCmd)
+// newGetCmd prints details for one context.
+func newGetCmd() *cobra.Command {
+	command := &getCmd{
+		loader: config.NewLoader(),
+		az:     az.NewClient,
+	}
+
+	cmd := &cobra.Command{ //nolint:exhaustruct // Cobra command definition
+		Use:               "get [name]",
+		Aliases:           []string{"get-context"},
+		Short:             "Get information about a context",
+		Long:              "Get information about one context. When NAME is omitted, it returns the current context.",
+		Example:           "  azctx get\n  azctx get prod -o json\n  azctx get prod -o table",
+		RunE:              command.run,
+		DisableAutoGenTag: true,
+		Args:              cobra.MaximumNArgs(1),
+	}
+
+	bindOutputFlag(cmd)
+
+	return cmd
 }
 
-// runGet executes the get command.
-func runGet(cmd *cobra.Command, args []string) error {
-	loaded, err := config.Load()
+// run executes the get command.
+func (c *getCmd) run(cmd *cobra.Command, args []string) error {
+	store, err := c.loader.Load()
 	if err != nil {
 		return err
 	}
@@ -36,29 +49,27 @@ func runGet(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	var contextName string
+	var name string
 	if len(args) == 1 {
-		contextName = args[0]
+		name = args[0]
 	} else {
-		currentContextName, currentErr := mustCurrentContextName(&loaded.Config)
-		if currentErr != nil {
-			return currentErr
+		name, err = mustCurrentContextName(&store.Config)
+		if err != nil {
+			return err
 		}
-
-		contextName = currentContextName
 	}
 
-	context, found := loaded.Config.ContextByName(contextName)
+	ctx, found := store.Config.ContextByName(name)
 	if !found {
-		return fmt.Errorf("context %q not found", contextName)
+		return fmt.Errorf("context %q not found", name)
 	}
 
-	view := buildContextView(&loaded.Config, context, loaded.Config.CurrentContext)
+	view := buildContextView(&store.Config, ctx, store.Config.CurrentContext)
 
 	switch format {
 	case output.FormatText:
-		_, writeErr := fmt.Fprintln(cmd.OutOrStdout(), contextViewText(&view))
-		return writeErr
+		_, err = fmt.Fprintln(cmd.OutOrStdout(), contextViewText(&view))
+		return err
 	case output.FormatJSON:
 		return output.PrintJSON(cmd.OutOrStdout(), view)
 	case output.FormatTable:

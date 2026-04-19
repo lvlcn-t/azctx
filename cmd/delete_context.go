@@ -7,42 +7,55 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// deleteContextCmd removes a context entry from config.
-var deleteContextCmd = &cobra.Command{ //nolint:gochecknoglobals // Cobra command definition
-	Use:               "delete-context NAME",
-	Aliases:           []string{"unset-context"},
-	Short:             "Delete a context from azctx config",
-	Long:              "Delete a context from azctx config.",
-	Example:           "  azctx delete-context prod",
-	RunE:              runDeleteContext,
-	DisableAutoGenTag: true,
-	Args:              cobra.ExactArgs(1),
+type deleteCtxCmd struct {
+	loader config.Loader
+	writer config.Writer
 }
 
-// runDeleteContext executes the delete-context command.
-func runDeleteContext(cmd *cobra.Command, args []string) error {
-	loaded, err := config.Load()
+// newDeleteCtxCmd removes a context entry from config.
+func newDeleteCtxCmd() *cobra.Command {
+	command := &deleteCtxCmd{
+		loader: config.NewLoader(),
+		writer: config.NewWriter(),
+	}
+
+	cmd := &cobra.Command{
+		Use:               "delete-context NAME",
+		Aliases:           []string{"unset-context"},
+		Short:             "Delete a context from azctx config",
+		Long:              "Delete a context from azctx config.",
+		Example:           "  azctx delete-context prod",
+		RunE:              command.run,
+		DisableAutoGenTag: true,
+		Args:              cobra.ExactArgs(1),
+	}
+
+	return cmd
+}
+
+// run executes the delete-context command.
+func (c *deleteCtxCmd) run(cmd *cobra.Command, args []string) error {
+	store, err := c.loader.Load()
 	if err != nil {
 		return err
 	}
 
-	contextName := args[0]
-	if _, found := loaded.Config.ContextByName(contextName); !found {
-		return fmt.Errorf("context %q not found", contextName)
+	name := args[0]
+	if _, found := store.Config.ContextByName(name); !found {
+		return fmt.Errorf("context %q not found", name)
 	}
 
-	writePath := loaded.PathForContext(contextName)
-	fileConfig := loaded.FileConfig(writePath)
-
-	if deleted := fileConfig.DeleteContext(contextName); !deleted {
-		return fmt.Errorf("context %q not found in %q", contextName, writePath)
+	path := store.PathForContext(name)
+	cfg := store.FileConfig(path)
+	if deleted := cfg.DeleteContext(name); !deleted {
+		return fmt.Errorf("context %q not found in %q", name, path)
 	}
 
-	if err := config.Write(writePath, &fileConfig); err != nil {
+	if err := c.writer.Write(path, &cfg); err != nil {
 		return err
 	}
 
-	if loaded.Config.CurrentContext == contextName {
+	if store.Config.CurrentContext == name {
 		if _, warnErr := fmt.Fprintf(
 			cmd.ErrOrStderr(),
 			"warning: this removed your active context, use %q to select a different one\n",
@@ -52,6 +65,6 @@ func runDeleteContext(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	_, writeErr := fmt.Fprintf(cmd.OutOrStdout(), "deleted context %q from %s\n", contextName, writePath)
+	_, writeErr := fmt.Fprintf(cmd.OutOrStdout(), "deleted context %q from %s\n", name, path)
 	return writeErr
 }

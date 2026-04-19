@@ -4,23 +4,25 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/afero"
 	ini "gopkg.in/ini.v1"
 )
 
 const (
-	azureConfigDirEnv              = "AZURE_CONFIG_DIR"
-	azureConfigDirectory           = ".azure"
-	azureConfigFile                = "config"
-	azureConfigDirectoryMode       = 0o700
-	azureConfigFileMode            = 0o600
-	azureConfigCoreSection         = "core"
-	azureConfigLoginExperienceKey  = "login_experience_v2"
-	azureConfigLoginExperienceOff  = "off"
-	azConfigRestoreWarningTemplate = "warning: failed to restore Azure CLI config %q: %v\n"
+	azureConfigDirEnv                          = "AZURE_CONFIG_DIR"
+	azureConfigDirectory                       = ".azure"
+	azureConfigFile                            = "config"
+	azureConfigDirectoryMode       fs.FileMode = 0o700
+	azureConfigFileMode            fs.FileMode = 0o600
+	azureConfigCoreSection                     = "core"
+	azureConfigLoginExperienceKey              = "login_experience_v2"
+	azureConfigLoginExperienceOff              = "off"
+	azConfigRestoreWarningTemplate             = "warning: failed to restore Azure CLI config %q: %v\n"
 )
 
 // azConfigPath returns the Azure CLI config file path.
@@ -76,12 +78,17 @@ func withLoginExperienceOff(fn func() error) error {
 }
 
 func loadAZConfig(path string) (*ini.File, error) {
-	configFile, err := ini.Load(path)
-	if errors.Is(err, os.ErrNotExist) {
+	raw, err := afero.ReadFile(fsys, path)
+	if errors.Is(err, fs.ErrNotExist) {
 		return ini.Empty(), nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("load Azure CLI config %q: %w", path, err)
+	}
+
+	configFile, err := ini.Load(raw)
+	if err != nil {
+		return nil, fmt.Errorf("parse Azure CLI config %q: %w", path, err)
 	}
 
 	return configFile, nil
@@ -131,7 +138,7 @@ func restoreLoginExperience(
 }
 
 func writeAZConfig(path string, configFile *ini.File) error {
-	if err := os.MkdirAll(filepath.Dir(path), azureConfigDirectoryMode); err != nil {
+	if err := fsys.MkdirAll(filepath.Dir(path), azureConfigDirectoryMode); err != nil {
 		return fmt.Errorf("create Azure CLI config directory %q: %w", filepath.Dir(path), err)
 	}
 
@@ -140,7 +147,7 @@ func writeAZConfig(path string, configFile *ini.File) error {
 		return fmt.Errorf("encode Azure CLI config: %w", err)
 	}
 
-	if err := os.WriteFile(path, encoded.Bytes(), azureConfigFileMode); err != nil {
+	if err := afero.WriteFile(fsys, path, encoded.Bytes(), azureConfigFileMode); err != nil {
 		return fmt.Errorf("write Azure CLI config file %q: %w", path, err)
 	}
 

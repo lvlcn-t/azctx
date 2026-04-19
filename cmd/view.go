@@ -8,23 +8,35 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// viewCmd renders merged azctx config.
-var viewCmd = &cobra.Command{ //nolint:gochecknoglobals // Cobra command definition
-	Use:               "view",
-	Short:             "Display merged azctx config",
-	Long:              "Display merged azctx config from AZCTX path list or the default config path.",
-	Example:           "  azctx view\n  azctx view -o json\n  azctx view --raw -o json",
-	RunE:              runView,
-	DisableAutoGenTag: true,
+type viewCommand struct {
+	loader config.Loader
+	writer config.Writer
 }
 
-func init() { //nolint:gochecknoinits // Cobra command setup
-	bindOutputFlag(viewCmd)
-	viewCmd.Flags().Bool("raw", false, "Print the source file instead of merged output")
+// newViewCmd renders merged azctx config.
+func newViewCmd() *cobra.Command {
+	command := &viewCommand{
+		loader: config.NewLoader(),
+		writer: config.NewWriter(),
+	}
+
+	cmd := &cobra.Command{
+		Use:               "view",
+		Short:             "Display merged azctx config",
+		Long:              "Display merged azctx config from AZCTX path list or the default config path.",
+		Example:           "  azctx view\n  azctx view -o json\n  azctx view --raw -o json",
+		RunE:              command.run,
+		DisableAutoGenTag: true,
+	}
+
+	bindOutputFlag(cmd)
+	cmd.Flags().Bool("raw", false, "Print the source file instead of merged output")
+
+	return cmd
 }
 
-// runView executes the view command.
-func runView(cmd *cobra.Command, _ []string) error {
+// run executes the view command.
+func (command *viewCommand) run(cmd *cobra.Command, _ []string) error {
 	raw, err := cmd.Flags().GetBool("raw")
 	if err != nil {
 		return fmt.Errorf("read raw flag: %w", err)
@@ -35,18 +47,18 @@ func runView(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	loaded, err := config.Load()
+	store, err := command.loader.Load()
 	if err != nil {
 		return err
 	}
 
-	cfg := loaded.Config
+	cfg := store.Config
 	if raw {
-		if loaded.WritePath == "" {
+		if store.WritePath == "" {
 			return fmt.Errorf("cannot resolve config write path")
 		}
 
-		cfg, err = config.Read(loaded.WritePath)
+		cfg, err = command.loader.Read(store.WritePath)
 		if err != nil {
 			return err
 		}

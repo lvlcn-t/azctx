@@ -7,28 +7,39 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// setTenantCmd creates or updates a tenant entry in config.
-var setTenantCmd = &cobra.Command{ //nolint:gochecknoglobals // Cobra command definition
-	Use:               "set-tenant NAME",
-	Short:             "Set a tenant entry in azctx config",
-	Long:              "Set a tenant entry in azctx config.",
-	Example:           "  azctx set-tenant corp --id 00000000-0000-0000-0000-000000000000",
-	RunE:              runSetTenant,
-	DisableAutoGenTag: true,
-	Args:              cobra.ExactArgs(1),
+type setTenantCommand struct {
+	loader config.Loader
+	writer config.Writer
 }
 
-func init() { //nolint:gochecknoinits // Cobra command setup
-	setTenantCmd.Flags().String("id", "", "Tenant ID")
+// newSetTenantCmd creates or updates a tenant entry in config.
+func newSetTenantCmd() *cobra.Command {
+	command := &setTenantCommand{
+		loader: config.NewLoader(),
+		writer: config.NewWriter(),
+	}
 
-	if err := setTenantCmd.MarkFlagRequired("id"); err != nil {
+	cmd := &cobra.Command{
+		Use:               "set-tenant NAME",
+		Short:             "Set a tenant entry in azctx config",
+		Long:              "Set a tenant entry in azctx config.",
+		Example:           "  azctx set-tenant corp --id 00000000-0000-0000-0000-000000000000",
+		RunE:              command.run,
+		DisableAutoGenTag: true,
+		Args:              cobra.ExactArgs(1),
+	}
+
+	cmd.Flags().String("id", "", "Tenant ID")
+	if err := cmd.MarkFlagRequired("id"); err != nil {
 		panic(fmt.Errorf("mark id flag required: %w", err))
 	}
+
+	return cmd
 }
 
-// runSetTenant executes the set-tenant command.
-func runSetTenant(cmd *cobra.Command, args []string) error {
-	loaded, err := config.Load()
+// run executes the set-tenant command.
+func (c *setTenantCommand) run(cmd *cobra.Command, args []string) error {
+	store, err := c.loader.Load()
 	if err != nil {
 		return err
 	}
@@ -48,24 +59,24 @@ func runSetTenant(cmd *cobra.Command, args []string) error {
 	}
 
 	wasExisting := false
-	if _, found := loaded.Config.TenantByName(tenantName); found {
+	if _, found := store.Config.TenantByName(tenantName); found {
 		wasExisting = true
 	}
 
-	writePath := loaded.PathForTenant(tenantName)
-	fileConfig := loaded.FileConfig(writePath)
+	path := store.PathForTenant(tenantName)
+	cfg := store.FileConfig(path)
 	nextTenant := config.Tenant{Name: tenantName, ID: tenantID}
-	fileConfig.UpsertTenant(nextTenant)
+	cfg.UpsertTenant(nextTenant)
 
-	if err := config.Write(writePath, &fileConfig); err != nil {
+	if err = c.writer.Write(path, &cfg); err != nil {
 		return err
 	}
 
 	if wasExisting {
-		_, writeErr := fmt.Fprintf(cmd.OutOrStdout(), "Tenant %q modified.\n", tenantName)
-		return writeErr
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Tenant %q modified.\n", tenantName)
+		return err
 	}
 
-	_, writeErr := fmt.Fprintf(cmd.OutOrStdout(), "Tenant %q created.\n", tenantName)
-	return writeErr
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Tenant %q created.\n", tenantName)
+	return err
 }

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/lvlcn-t/azctx/config"
+	"github.com/spf13/afero"
 )
 
 const azInstallURL = "https://aka.ms/install-azure-cli"
@@ -17,6 +18,7 @@ const azInstallURL = "https://aka.ms/install-azure-cli"
 // errCLIUnavailable indicates that the Azure CLI is not installed.
 var errCLIUnavailable = errors.New("az CLI not found")
 
+//go:generate go tool moq -out client_moq.go . CLI
 type CLI interface {
 	Login(ctx context.Context, credential *config.Credential, tenantID string) error
 	SetSubscription(ctx context.Context, subscriptionID string) error
@@ -52,7 +54,7 @@ func (c *client) Login(ctx context.Context, credential *config.Credential, tenan
 
 		return az(ctx, args...)
 	case config.CredentialTypeOIDC:
-		token, err := os.ReadFile(credential.FederatedTokenFile)
+		token, err := afero.ReadFile(fsys, credential.FederatedTokenFile)
 		if err != nil {
 			return fmt.Errorf("read federated token file %q: %w", credential.FederatedTokenFile, err)
 		}

@@ -7,41 +7,53 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// setContextCmd creates or updates a context entry in config.
-var setContextCmd = &cobra.Command{ //nolint:gochecknoglobals // Cobra command definition
-	Use:               "set-context NAME",
-	Short:             "Set a context entry in azctx config",
-	Long:              "Set a context entry in azctx config. The context points to tenant and credential entries in the same merged azctx config.",
-	Example:           "  azctx set-context prod --tenant corp --credential ci-sp --subscription 00000000-0000-0000-0000-000000000000",
-	RunE:              runSetContext,
-	DisableAutoGenTag: true,
-	Args:              cobra.ExactArgs(1),
+type setCtxCmd struct {
+	loader config.Loader
+	writer config.Writer
 }
 
-func init() { //nolint:gochecknoinits // Cobra command setup
-	setContextCmd.Flags().String("tenant", "", "Tenant name for the context")
-	setContextCmd.Flags().String("credential", "", "Credential name for the context")
-	setContextCmd.Flags().String("subscription", "", "Optional subscription ID for the context")
+// newSetCtxCmd creates or updates a context entry in config.
+func newSetCtxCmd() *cobra.Command {
+	command := &setCtxCmd{
+		loader: config.NewLoader(),
+		writer: config.NewWriter(),
+	}
+
+	cmd := &cobra.Command{
+		Use:               "set-context NAME",
+		Short:             "Set a context entry in azctx config",
+		Long:              "Set a context entry in azctx config. The context points to tenant and credential entries in the same merged azctx config.",
+		Example:           "  azctx set-context prod --tenant corp --credential ci-sp --subscription 00000000-0000-0000-0000-000000000000",
+		RunE:              command.run,
+		DisableAutoGenTag: true,
+		Args:              cobra.ExactArgs(1),
+	}
+
+	cmd.Flags().String("tenant", "", "Tenant name for the context")
+	cmd.Flags().String("credential", "", "Credential name for the context")
+	cmd.Flags().String("subscription", "", "Optional subscription ID for the context")
+
+	return cmd
 }
 
-// runSetContext executes the set-context command.
-func runSetContext(cmd *cobra.Command, args []string) error {
-	loaded, err := config.Load()
+// run executes the set-context command.
+func (c *setCtxCmd) run(cmd *cobra.Command, args []string) error {
+	store, err := c.loader.Load()
 	if err != nil {
 		return err
 	}
 
-	contextName := args[0]
-	if contextName == "" {
+	ctx := args[0]
+	if ctx == "" {
 		return fmt.Errorf("context name must not be empty")
 	}
 
-	tenantName, err := cmd.Flags().GetString("tenant")
+	tenant, err := cmd.Flags().GetString("tenant")
 	if err != nil {
 		return fmt.Errorf("read tenant flag: %w", err)
 	}
 
-	credentialName, err := cmd.Flags().GetString("credential")
+	credential, err := cmd.Flags().GetString("credential")
 	if err != nil {
 		return fmt.Errorf("read credential flag: %w", err)
 	}
@@ -51,79 +63,78 @@ func runSetContext(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("read subscription flag: %w", err)
 	}
 
-	nextContext, hasExistingInMerged := nextContextFromFlags(
-		&loaded.Config,
-		contextName,
-		tenantName,
-		credentialName,
+	nextCtx, hasExistingInMerged := nextContextFromFlags(
+		&store.Config,
+		ctx,
+		tenant,
+		credential,
 		subscriptionID,
 		cmd.Flags().Changed("subscription"),
 	)
 
-	if err := loaded.Config.ValidateContextReferences(nextContext); err != nil {
+	if err = store.Config.ValidateContextReferences(nextCtx); err != nil {
 		return err
 	}
 
-	tenant, _ := loaded.Config.TenantByName(nextContext.Tenant)
-	if tenant.ID == "" {
-		return fmt.Errorf("tenant %q is missing id", tenant.Name)
+	t, _ := store.Config.TenantByName(nextCtx.Tenant)
+	if t.ID == "" {
+		return fmt.Errorf("tenant %q is missing id", t.Name)
 	}
 
-	credential, _ := loaded.Config.CredentialByName(nextContext.Credential)
-	if err := credential.Validate(); err != nil {
+	cred, _ := store.Config.CredentialByName(nextCtx.Credential)
+	if err = cred.Validate(); err != nil {
 		return err
 	}
 
-	writePath := loaded.PathForContext(contextName)
-	fileConfig := loaded.FileConfig(writePath)
-
-	fileConfig.UpsertContext(nextContext)
-	if err := config.Write(writePath, &fileConfig); err != nil {
+	path := store.PathForContext(ctx)
+	cfg := store.FileConfig(path)
+	cfg.UpsertContext(nextCtx)
+	if err = c.writer.Write(path, &cfg); err != nil {
 		return err
 	}
 
 	if hasExistingInMerged {
-		_, writeErr := fmt.Fprintf(cmd.OutOrStdout(), "Context %q modified.\n", contextName)
-		return writeErr
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Context %q modified.\n", ctx)
+		return err
 	}
 
-	_, writeErr := fmt.Fprintf(cmd.OutOrStdout(), "Context %q created.\n", contextName)
-	return writeErr
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Context %q created.\n", ctx)
+	return err
 }
 
 // nextContextFromFlags resolves the effective context payload for upserts.
 func nextContextFromFlags(
 	cfg *config.Config,
-	contextName string,
-	tenantName string,
-	credentialName string,
+	ctx string,
+	tenant string,
+	credential string,
 	subscriptionID string,
 	subscriptionChanged bool,
 ) (config.Context, bool) {
-	nextContext := config.Context{
-		Name:         contextName,
-		Tenant:       tenantName,
-		Credential:   credentialName,
+	nextCtx := config.Context{
+		Name:         ctx,
+		Tenant:       tenant,
+		Credential:   credential,
 		Subscription: subscriptionID,
 	}
 
-	existingContext, hasExisting := cfg.ContextByName(contextName)
-	if !hasExisting {
-		return nextContext, false
+	existing, ok := cfg.ContextByName(ctx)
+	if !ok {
+		return nextCtx, false
 	}
 
-	nextContext = existingContext
-	if tenantName != "" {
-		nextContext.Tenant = tenantName
+	nextCtx = existing
+	if tenant != "" {
+		nextCtx.Tenant = tenant
 	}
 
-	if credentialName != "" {
-		nextContext.Credential = credentialName
+	if credential != "" {
+		nextCtx.Credential = credential
 	}
 
 	if subscriptionChanged {
-		nextContext.Subscription = subscriptionID
+		nextCtx.Subscription = subscriptionID
 	}
 
-	return nextContext, true
+	return nextCtx, true
 }
