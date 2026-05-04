@@ -3,7 +3,6 @@ package keyvault
 import (
 	"context"
 	"errors"
-	"path"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -24,7 +23,7 @@ func TestIsReference(t *testing.T) {
 	}{
 		{testSecretURI, true},
 		{testCertURI, true},
-		{path.Join(testSecretURI, "version"), true},
+		{testSecretURI + "/version", true},
 		{"my-plain-secret", false},
 		{"", false},
 		{"keyvault:", false},

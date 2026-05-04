@@ -16,7 +16,16 @@ import (
 	"github.com/spf13/afero"
 )
 
-const azInstallURL = "https://aka.ms/install-azure-cli"
+const (
+	azInstallURL = "https://aka.ms/install-azure-cli"
+
+	flagLogin            = "login"
+	flagServicePrincipal = "--service-principal"
+	flagUsername         = "--username"
+	flagTenant           = "--tenant"
+	flagPassword         = "--password"
+	flagFederatedToken   = "--federated-token"
+)
 
 // errCLIUnavailable indicates that the Azure CLI is not installed.
 var (
@@ -52,10 +61,10 @@ func (c *client) Login(ctx context.Context, credential *config.Credential, tenan
 		return c.loginServicePrincipal(ctx, credential, tenantID)
 	case config.CredentialTypeUser:
 		return withLoginExperienceOff(func() error {
-			return az(ctx, "login", "--tenant", tenantID, "--output", "none")
+			return az(ctx, flagLogin, flagTenant, tenantID, "--output", "none")
 		})
 	case config.CredentialTypeManagedIdentity:
-		args := []string{"login", "--identity"}
+		args := []string{flagLogin, "--identity"}
 		if credential.ClientID != "" {
 			args = append(args, "--client-id", credential.ClientID)
 		}
@@ -74,11 +83,11 @@ func (c *client) Login(ctx context.Context, credential *config.Credential, tenan
 
 		return az(
 			ctx,
-			"login",
-			"--service-principal",
-			"--username", credential.ClientID,
-			"--tenant", tenantID,
-			"--federated-token", trimmedToken,
+			flagLogin,
+			flagServicePrincipal,
+			flagUsername, credential.ClientID,
+			flagTenant, tenantID,
+			flagFederatedToken, trimmedToken,
 		)
 	default:
 		return fmt.Errorf("unsupported credential type %q", credential.Type)
@@ -96,10 +105,10 @@ func (c *client) SetSubscription(ctx context.Context, subscriptionID string) err
 
 func (c *client) loginServicePrincipal(ctx context.Context, credential *config.Credential, tenantID string) error {
 	args := []string{
-		"login",
-		"--service-principal",
-		"--username", credential.ClientID,
-		"--tenant", tenantID,
+		flagLogin,
+		flagServicePrincipal,
+		flagUsername, credential.ClientID,
+		flagTenant, tenantID,
 	}
 
 	if credential.ClientSecret != "" {
@@ -124,7 +133,7 @@ func (c *client) loginWithSecret(ctx context.Context, args []string, secret stri
 		secret = resolved
 	}
 
-	return az(ctx, append(args, "--password", secret)...)
+	return az(ctx, append(args, flagPassword, secret)...)
 }
 
 func (c *client) loginWithCert(ctx context.Context, args []string, certPath string) error {
@@ -206,13 +215,33 @@ func az(ctx context.Context, args ...string) error {
 	if err := command.Run(); err != nil {
 		stderrText := strings.TrimSpace(stderr.String())
 		if stderrText != "" {
-			return fmt.Errorf("az %s failed: %w: %s", strings.Join(args, " "), err, stderrText)
+			return fmt.Errorf("az %s failed: %w: %s", redactArgs(args), err, stderrText)
 		}
 
-		return fmt.Errorf("az %s failed: %w", strings.Join(args, " "), err)
+		return fmt.Errorf("az %s failed: %w", redactArgs(args), err)
 	}
 
 	return nil
+}
+
+// sensitiveFlags lists az CLI flags whose values must not appear in error messages.
+var sensitiveFlags = map[string]struct{}{
+	flagPassword:       {},
+	flagFederatedToken: {},
+}
+
+// redactArgs returns a joined argument string with sensitive flag values replaced.
+func redactArgs(args []string) string {
+	redacted := make([]string, len(args))
+	copy(redacted, args)
+
+	for i, arg := range redacted {
+		if _, ok := sensitiveFlags[arg]; ok && i+1 < len(redacted) {
+			redacted[i+1] = "[REDACTED]"
+		}
+	}
+
+	return strings.Join(redacted, " ")
 }
 
 // writeTempCert writes PEM bytes to a temporary file with restricted
