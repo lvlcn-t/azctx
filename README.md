@@ -13,6 +13,7 @@
   - [Container Image](#container-image)
 - [Usage](#usage)
   - [Config file](#config-file)
+  - [Key Vault secret references](#key-vault-secret-references)
   - [Commands](#commands)
   - [Output formats](#output-formats)
   - [Typical workflow](#typical-workflow)
@@ -144,6 +145,38 @@ Supported credential types and their required fields:
 | `user`              | _(none — interactive login)_                               |
 | `managed-identity`  | _(none)_                                                   |
 | `oidc`              | `client-id` + `federated-token-file`                       |
+
+`client-secret` and `client-certificate-path` also accept
+[Key Vault references](#key-vault-secret-references).
+
+### Key Vault secret references
+
+`client-secret` and `client-certificate-path` on a `service-principal`
+credential accept a `keyvault://` URI. azctx fetches the value at login
+time — nothing secret is stored on disk.
+
+```yaml
+credentials:
+  - name: ci-sp
+    type: service-principal
+    client-id: 11111111-1111-1111-1111-111111111111
+    client-secret: "keyvault://my-vault/secrets/ci-sp-secret"
+    # or: client-certificate-path: "keyvault://my-vault/certificates/ci-sp-cert"
+```
+
+URI format: `keyvault://<vault>/<secrets|certificates>/<name>[/<version>]`
+
+Resolution uses [`DefaultAzureCredential`][default-azure-credential], so an ambient credential must
+already be active when you run `azctx use` — a user session (`az login`),
+managed identity, or environment variables suffice. Using the same
+`service-principal` whose secret lives in Key Vault as the only credential
+is the one unsupported case.
+
+> [!NOTE]
+> For certificates, azctx writes the fetched PEM to a temporary file
+> (mode `0600`) for the duration of `az login`, then deletes it immediately.
+
+[default-azure-credential]: https://learn.microsoft.com/en-us/azure/developer/go/sdk/authentication/local-development-dev-accounts?tabs=azure-portal%2Csign-in-azure-cli
 
 ### Commands
 

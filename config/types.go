@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // CredentialType identifies the kind of Azure credential.
@@ -239,15 +240,7 @@ func (credential *Credential) Validate() error {
 
 	switch credential.Type {
 	case CredentialTypeServicePrincipal:
-		if credential.ClientID == "" {
-			return errors.New("service-principal credential requires client-id")
-		}
-
-		hasSecret := credential.ClientSecret != ""
-		hasCertificatePath := credential.ClientCertificatePath != ""
-		if !hasSecret && !hasCertificatePath {
-			return errors.New("service-principal credential requires client-secret or client-certificate-path")
-		}
+		return credential.validateServicePrincipal()
 	case CredentialTypeUser:
 		return nil
 	case CredentialTypeManagedIdentity:
@@ -262,6 +255,34 @@ func (credential *Credential) Validate() error {
 		}
 	default:
 		return fmt.Errorf("unsupported credential type %q", credential.Type)
+	}
+
+	return nil
+}
+
+// validateServicePrincipal validates service-principal specific fields.
+func (credential *Credential) validateServicePrincipal() error {
+	if credential.ClientID == "" {
+		return errors.New("service-principal credential requires client-id")
+	}
+
+	hasSecret := credential.ClientSecret != ""
+	hasCertificatePath := credential.ClientCertificatePath != ""
+
+	if !hasSecret && !hasCertificatePath {
+		return errors.New("service-principal credential requires client-secret or client-certificate-path")
+	}
+
+	if hasSecret && isKeyVaultRef(credential.ClientSecret) {
+		if err := validateKeyVaultURI(credential.ClientSecret); err != nil {
+			return fmt.Errorf("invalid client-secret Key Vault reference: %w", err)
+		}
+	}
+
+	if hasCertificatePath && isKeyVaultRef(credential.ClientCertificatePath) {
+		if err := validateKeyVaultURI(credential.ClientCertificatePath); err != nil {
+			return fmt.Errorf("invalid client-certificate-path Key Vault reference: %w", err)
+		}
 	}
 
 	return nil
@@ -316,4 +337,38 @@ func (cfg *Config) mergeContexts(contexts []Context) {
 		cfg.Contexts = append(cfg.Contexts, context)
 		known[context.Name] = struct{}{}
 	}
+}
+
+const keyVaultScheme = "keyvault://"
+
+// maxKeyVaultURIParts is the max number of path segments in a keyvault URI.
+const maxKeyVaultURIParts = 4
+
+// isKeyVaultRef reports whether a value is a keyvault:// URI reference.
+func isKeyVaultRef(value string) bool {
+	return strings.HasPrefix(value, keyVaultScheme)
+}
+
+// validateKeyVaultURI validates the structure of a keyvault:// URI without
+// resolving it.
+func validateKeyVaultURI(uri string) error {
+	path := strings.TrimPrefix(uri, keyVaultScheme)
+	parts := strings.Split(path, "/")
+
+	if len(parts) < 3 || len(parts) > maxKeyVaultURIParts {
+		return fmt.Errorf(
+			"expected keyvault://<vault>/<secrets|certificates>/<name>[/<version>], got %q",
+			uri,
+		)
+	}
+
+	objectType := parts[1]
+	if objectType != "secrets" && objectType != "certificates" {
+		return fmt.Errorf(
+			"object type must be \"secrets\" or \"certificates\", got %q",
+			objectType,
+		)
+	}
+
+	return nil
 }
