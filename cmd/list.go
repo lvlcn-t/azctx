@@ -72,7 +72,7 @@ func (command *listCmd) run(cmd *cobra.Command, _ []string) error {
 
 		return output.PrintTable(
 			cmd.OutOrStdout(),
-			[]string{"CURRENT", "NAME", "TENANT", "TENANT ID", "CREDENTIAL", "TYPE", "SUBSCRIPTION"},
+			[]string{"CURRENT", "NAME", "TENANT", "TENANT ID", "CREDENTIAL", "TYPE", "SUBSCRIPTION"}, //nolint:goconst // column headers
 			rows,
 		)
 	default:

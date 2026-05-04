@@ -75,7 +75,7 @@ func (c *getCmd) run(cmd *cobra.Command, args []string) error {
 	case output.FormatTable:
 		return output.PrintTable(
 			cmd.OutOrStdout(),
-			[]string{"CURRENT", "NAME", "TENANT", "TENANT ID", "CREDENTIAL", "TYPE", "SUBSCRIPTION"},
+			[]string{"CURRENT", "NAME", "TENANT", "TENANT ID", "CREDENTIAL", "TYPE", "SUBSCRIPTION"}, //nolint:goconst // column headers
 			[][]string{contextTableRow(&view)},
 		)
 	default:

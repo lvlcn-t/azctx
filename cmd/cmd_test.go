@@ -11,6 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	devContext  = "dev"
+	prodContext = "prod"
+)
+
 func writeConfigForTest(t *testing.T, cfg *config.Config) string {
 	t.Helper()
 
@@ -68,7 +73,7 @@ func newRunCommand() (command *cobra.Command, stdout *bytes.Buffer) {
 
 func baseConfig() *config.Config {
 	return &config.Config{
-		CurrentContext: "dev",
+		CurrentContext: devContext,
 		Tenants: []config.Tenant{
 			{Name: "corp", ID: "tenant-1"},
 			{Name: "platform", ID: "tenant-2"},
@@ -84,13 +89,13 @@ func baseConfig() *config.Config {
 		},
 		Contexts: []config.Context{
 			{
-				Name:         "dev",
+				Name:         devContext,
 				Tenant:       "corp",
 				Credential:   "user",
 				Subscription: "sub-dev",
 			},
 			{
-				Name:         "prod",
+				Name:         prodContext,
 				Tenant:       "platform",
 				Credential:   "sp",
 				Subscription: "sub-prod",

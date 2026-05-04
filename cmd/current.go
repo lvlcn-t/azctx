@@ -70,14 +70,14 @@ func (c *currentCmd) run(cmd *cobra.Command, _ []string) error {
 		if !verbose {
 			return output.PrintTable(
 				cmd.OutOrStdout(),
-				[]string{"CURRENT", "NAME"},
+				[]string{"CURRENT", "NAME"}, //nolint:goconst // column headers
 				[][]string{{"*", view.Name}},
 			)
 		}
 
 		return output.PrintTable(
 			cmd.OutOrStdout(),
-			[]string{"CURRENT", "NAME", "TENANT", "TENANT ID", "CREDENTIAL", "TYPE", "SUBSCRIPTION"},
+			[]string{"CURRENT", "NAME", "TENANT", "TENANT ID", "CREDENTIAL", "TYPE", "SUBSCRIPTION"}, //nolint:goconst // column headers
 			[][]string{contextTableRow(&view)},
 		)
 	default:

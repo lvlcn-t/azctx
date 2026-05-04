@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/lvlcn-t/azctx/az"
@@ -35,15 +36,15 @@ func TestUseHappyPath(t *testing.T) {
 	}
 
 	runCommand, stdout := newRunCommand()
-	err := command.run(runCommand, []string{"prod"})
+	err := command.run(runCommand, []string{prodContext})
 	require.NoError(t, err)
 
-	assert.Contains(t, stdout.String(), `Switched to context "prod".`)
+	assert.Contains(t, stdout.String(), fmt.Sprintf(`Switched to context %q.`, prodContext))
 	assert.Len(t, mock.LoginCalls(), 1)
 	assert.Len(t, mock.SetSubscriptionCalls(), 1)
 
 	got := readConfigForTest(t, path)
-	assert.Equal(t, "prod", got.CurrentContext)
+	assert.Equal(t, prodContext, got.CurrentContext)
 }
 
 func TestUseContextNotFound(t *testing.T) {
@@ -83,7 +84,7 @@ func TestUseAZClientFactoryError(t *testing.T) {
 	}
 
 	runCommand, _ := newRunCommand()
-	err := command.run(runCommand, []string{"dev"})
+	err := command.run(runCommand, []string{devContext})
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "create az client")
 	assert.ErrorIs(t, err, sentinel)

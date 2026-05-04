@@ -12,6 +12,18 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+var (
+	tenantCorp = Tenant{Name: "corp", ID: "tenant-1"}
+	tenantPlat = Tenant{Name: "platform", ID: "tenant-2"}
+
+	credUser = Credential{Name: "cred-a", Type: CredentialTypeUser}
+	credMI   = Credential{Name: "cred-b", Type: CredentialTypeManagedIdentity}
+	credOIDC = Credential{Name: "cred-c", Type: CredentialTypeOIDC}
+
+	devContext  = Context{Name: "dev", Tenant: tenantCorp.Name, Credential: credUser.Name}
+	prodContext = Context{Name: "prod", Tenant: tenantPlat.Name, Credential: credMI.Name, Subscription: "sub-prod"}
+)
+
 func TestExpandPath(t *testing.T) {
 	homeDir, err := os.UserHomeDir()
 	require.NoError(t, err)
@@ -88,22 +100,21 @@ func TestLoaderLoadMergesWithFirstWins(t *testing.T) {
 	loader := Loader{fsys: fs, env: pathOne + string(os.PathListSeparator) + pathTwo}
 
 	cfgOne := Config{
-		CurrentContext: "dev",
-		Tenants:        []Tenant{{Name: "corp", ID: "tenant-1"}},
-		Credentials:    []Credential{{Name: "cred-a", Type: CredentialTypeUser}},
-		Contexts:       []Context{{Name: "dev", Tenant: "corp", Credential: "cred-a"}},
+		CurrentContext: devContext.Name,
+		Tenants:        []Tenant{tenantCorp},
+		Credentials:    []Credential{credUser},
+		Contexts:       []Context{devContext},
 	}
 	writeConfigYAML(t, fs, pathOne, &cfgOne)
 
+	cfgTwoTenantCorp := Tenant{Name: "corp", ID: "tenant-2"}
+	cfgTwoTenantPlat := Tenant{Name: "platform", ID: "tenant-3"}
+
 	cfgTwo := Config{
-		CurrentContext: "prod",
-		Tenants:        []Tenant{{Name: "corp", ID: "tenant-2"}, {Name: "platform", ID: "tenant-3"}},
-		Credentials:    []Credential{{Name: "cred-a", Type: CredentialTypeManagedIdentity}, {Name: "cred-b", Type: CredentialTypeOIDC}},
-		Contexts: []Context{{
-			Name: "dev", Tenant: "corp", Credential: "cred-a", Subscription: "sub-a",
-		}, {
-			Name: "prod", Tenant: "platform", Credential: "cred-b",
-		}},
+		CurrentContext: prodContext.Name,
+		Tenants:        []Tenant{cfgTwoTenantCorp, cfgTwoTenantPlat},
+		Credentials:    []Credential{credMI, credOIDC},
+		Contexts:       []Context{devContext, prodContext},
 	}
 	writeConfigYAML(t, fs, pathTwo, &cfgTwo)
 
@@ -112,24 +123,24 @@ func TestLoaderLoadMergesWithFirstWins(t *testing.T) {
 
 	assert.Equal(t, []string{pathOne, pathTwo}, store.Paths)
 	assert.Equal(t, pathOne, store.WritePath)
-	assert.Equal(t, "dev", store.Config.CurrentContext)
+	assert.Equal(t, devContext.Name, store.Config.CurrentContext)
 
-	tenant, ok := store.Config.TenantByName("corp")
+	tenant, ok := store.Config.TenantByName(tenantCorp.Name)
 	require.True(t, ok)
 	assert.Equal(t, "tenant-1", tenant.ID)
 
-	_, ok = store.Config.TenantByName("platform")
+	_, ok = store.Config.TenantByName(tenantPlat.Name)
 	assert.True(t, ok)
 
-	contextValue, ok := store.Config.ContextByName("dev")
+	contextValue, ok := store.Config.ContextByName(devContext.Name)
 	require.True(t, ok)
 	assert.Empty(t, contextValue.Subscription)
 
 	assert.Equal(t, pathOne, store.PathForCurrentContext())
-	assert.Equal(t, pathOne, store.PathForTenant("corp"))
-	assert.Equal(t, pathTwo, store.PathForTenant("platform"))
-	assert.Equal(t, pathOne, store.PathForContext("dev"))
-	assert.Equal(t, pathTwo, store.PathForContext("prod"))
+	assert.Equal(t, pathOne, store.PathForTenant(tenantCorp.Name))
+	assert.Equal(t, pathTwo, store.PathForTenant(cfgTwoTenantPlat.Name))
+	assert.Equal(t, pathOne, store.PathForContext(devContext.Name))
+	assert.Equal(t, pathTwo, store.PathForContext(prodContext.Name))
 }
 
 func TestLoaderLoadMissingFileUsesFirstPathAsWritePath(t *testing.T) {
@@ -164,8 +175,8 @@ func TestLoaderRead(t *testing.T) {
 
 	path := filepath.Clean("/tmp/config.yaml")
 	cfg := Config{
-		CurrentContext: "dev",
-		Tenants:        []Tenant{{Name: "corp", ID: "tenant-1"}},
+		CurrentContext: devContext.Name,
+		Tenants:        []Tenant{tenantCorp},
 	}
 	writeConfigYAML(t, fs, path, &cfg)
 
@@ -186,10 +197,10 @@ func TestWriterWriteAndLoaderReadRoundTrip(t *testing.T) {
 
 	path := filepath.Clean("/tmp/nested/config.yaml")
 	input := Config{
-		CurrentContext: "dev",
-		Tenants:        []Tenant{{Name: "corp", ID: "tenant-1"}},
-		Credentials:    []Credential{{Name: "ci", Type: CredentialTypeManagedIdentity}},
-		Contexts:       []Context{{Name: "dev", Tenant: "corp", Credential: "ci", Subscription: "sub-1"}},
+		CurrentContext: devContext.Name,
+		Tenants:        []Tenant{tenantCorp},
+		Credentials:    []Credential{credMI},
+		Contexts:       []Context{{Name: devContext.Name, Tenant: tenantCorp.Name, Credential: credMI.Name, Subscription: "sub-1"}},
 	}
 
 	err := writer.Write(path, &input)
@@ -227,8 +238,12 @@ func TestLoaderReadConfigReturnsReadError(t *testing.T) {
 func writeConfigYAML(t *testing.T, fs afero.Fs, path string, cfg *Config) {
 	t.Helper()
 
+	const (
+		dirMode  = 0o700
+		fileMode = 0o600
+	)
 	encoded, err := yaml.Marshal(cfg)
 	require.NoError(t, err)
-	require.NoError(t, fs.MkdirAll(filepath.Dir(path), 0o700))
-	require.NoError(t, afero.WriteFile(fs, path, encoded, 0o600))
+	require.NoError(t, fs.MkdirAll(filepath.Dir(path), dirMode))
+	require.NoError(t, afero.WriteFile(fs, path, encoded, fileMode))
 }

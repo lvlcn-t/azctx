@@ -70,7 +70,7 @@ func (command *viewCommand) run(cmd *cobra.Command, _ []string) error {
 	case output.FormatText, output.FormatTable:
 		return output.PrintTable(
 			cmd.OutOrStdout(),
-			[]string{"SECTION", "NAME", "VALUE"},
+			[]string{"SECTION", "NAME", "VALUE"}, //nolint:goconst // column headers
 			viewRows(&cfg),
 		)
 	default:
