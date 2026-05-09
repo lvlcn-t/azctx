@@ -8,7 +8,7 @@ permissions:
   # Needed for the static analysis result upload
   security-events: write
   # Needed for golangci-lint for the only-new-issues flag
-  pull-requests: read
+  pull-requests: write
   # Needed to annotate the code with the scan results > https://github.blog/2018-12-14-introducing-check-runs-and-annotations/
   checks: write
 
