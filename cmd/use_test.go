@@ -15,14 +15,21 @@ import (
 func TestUseHappyPath(t *testing.T) {
 	path := writeConfigForTest(t, baseConfig())
 
-	mock := &az.CLIMock{
-		LoginFunc: func(_ context.Context, credential *config.Credential, tenantID string) error {
-			require.Equal(t, "sp", credential.Name)
-			require.Equal(t, "tenant-2", tenantID)
-			return nil
+	var mock *az.CLIMock
+	mock = &az.CLIMock{
+		WithTenantFunc: func(tenantID string) az.CLI {
+			assert.Equal(t, "tenant-2", tenantID)
+			return mock
 		},
-		SetSubscriptionFunc: func(_ context.Context, subscriptionID string) error {
-			require.Equal(t, "sub-prod", subscriptionID)
+		WithCredentialFunc: func(credential *config.Credential) az.CLI {
+			assert.Equal(t, "sp", credential.Name)
+			return mock
+		},
+		WithSubscriptionFunc: func(subscriptionID string) az.CLI {
+			assert.Equal(t, "sub-prod", subscriptionID)
+			return mock
+		},
+		LoginFunc: func(ctx context.Context) error {
 			return nil
 		},
 	}
@@ -30,7 +37,7 @@ func TestUseHappyPath(t *testing.T) {
 	command := &useCommand{
 		loader: config.NewLoader(),
 		writer: config.NewWriter(),
-		az: func() (az.CLI, error) {
+		az: func(ctx context.Context) (az.CLI, error) {
 			return mock, nil
 		},
 	}
@@ -40,8 +47,10 @@ func TestUseHappyPath(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Contains(t, stdout.String(), fmt.Sprintf(`Switched to context %q.`, prodContext))
+	assert.Len(t, mock.WithTenantCalls(), 1)
+	assert.Len(t, mock.WithCredentialCalls(), 1)
+	assert.Len(t, mock.WithSubscriptionCalls(), 1)
 	assert.Len(t, mock.LoginCalls(), 1)
-	assert.Len(t, mock.SetSubscriptionCalls(), 1)
 
 	got := readConfigForTest(t, path)
 	assert.Equal(t, prodContext, got.CurrentContext)
@@ -50,18 +59,27 @@ func TestUseHappyPath(t *testing.T) {
 func TestUseContextNotFound(t *testing.T) {
 	writeConfigForTest(t, baseConfig())
 
+	var mock *az.CLIMock
+	mock = &az.CLIMock{
+		WithTenantFunc: func(tenantID string) az.CLI {
+			return mock
+		},
+		WithCredentialFunc: func(credential *config.Credential) az.CLI {
+			return mock
+		},
+		WithSubscriptionFunc: func(subscriptionID string) az.CLI {
+			return mock
+		},
+		LoginFunc: func(ctx context.Context) error {
+			return nil
+		},
+	}
+
 	command := &useCommand{
 		loader: config.NewLoader(),
 		writer: config.NewWriter(),
-		az: func() (az.CLI, error) {
-			return &az.CLIMock{
-				LoginFunc: func(context.Context, *config.Credential, string) error {
-					return nil
-				},
-				SetSubscriptionFunc: func(context.Context, string) error {
-					return nil
-				},
-			}, nil
+		az: func(ctx context.Context) (az.CLI, error) {
+			return mock, nil
 		},
 	}
 
@@ -78,7 +96,7 @@ func TestUseAZClientFactoryError(t *testing.T) {
 	command := &useCommand{
 		loader: config.NewLoader(),
 		writer: config.NewWriter(),
-		az: func() (az.CLI, error) {
+		az: func(ctx context.Context) (az.CLI, error) {
 			return nil, sentinel
 		},
 	}

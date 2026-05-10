@@ -19,11 +19,17 @@ var _ CLI = &CLIMock{}
 //
 //		// make and configure a mocked CLI
 //		mockedCLI := &CLIMock{
-//			LoginFunc: func(ctx context.Context, credential *config.Credential, tenantID string) error {
+//			LoginFunc: func(ctx context.Context) error {
 //				panic("mock out the Login method")
 //			},
-//			SetSubscriptionFunc: func(ctx context.Context, subscriptionID string) error {
-//				panic("mock out the SetSubscription method")
+//			WithCredentialFunc: func(credential *config.Credential) CLI {
+//				panic("mock out the WithCredential method")
+//			},
+//			WithSubscriptionFunc: func(subscriptionID string) CLI {
+//				panic("mock out the WithSubscription method")
+//			},
+//			WithTenantFunc: func(tenantID string) CLI {
+//				panic("mock out the WithTenant method")
 //			},
 //		}
 //
@@ -33,10 +39,16 @@ var _ CLI = &CLIMock{}
 //	}
 type CLIMock struct {
 	// LoginFunc mocks the Login method.
-	LoginFunc func(ctx context.Context, credential *config.Credential, tenantID string) error
+	LoginFunc func(ctx context.Context) error
 
-	// SetSubscriptionFunc mocks the SetSubscription method.
-	SetSubscriptionFunc func(ctx context.Context, subscriptionID string) error
+	// WithCredentialFunc mocks the WithCredential method.
+	WithCredentialFunc func(credential *config.Credential) CLI
+
+	// WithSubscriptionFunc mocks the WithSubscription method.
+	WithSubscriptionFunc func(subscriptionID string) CLI
+
+	// WithTenantFunc mocks the WithTenant method.
+	WithTenantFunc func(tenantID string) CLI
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -44,41 +56,43 @@ type CLIMock struct {
 		Login []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
+		}
+		// WithCredential holds details about calls to the WithCredential method.
+		WithCredential []struct {
 			// Credential is the credential argument value.
 			Credential *config.Credential
-			// TenantID is the tenantID argument value.
-			TenantID string
 		}
-		// SetSubscription holds details about calls to the SetSubscription method.
-		SetSubscription []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
+		// WithSubscription holds details about calls to the WithSubscription method.
+		WithSubscription []struct {
 			// SubscriptionID is the subscriptionID argument value.
 			SubscriptionID string
 		}
+		// WithTenant holds details about calls to the WithTenant method.
+		WithTenant []struct {
+			// TenantID is the tenantID argument value.
+			TenantID string
+		}
 	}
-	lockLogin           sync.RWMutex
-	lockSetSubscription sync.RWMutex
+	lockLogin            sync.RWMutex
+	lockWithCredential   sync.RWMutex
+	lockWithSubscription sync.RWMutex
+	lockWithTenant       sync.RWMutex
 }
 
 // Login calls LoginFunc.
-func (mock *CLIMock) Login(ctx context.Context, credential *config.Credential, tenantID string) error {
+func (mock *CLIMock) Login(ctx context.Context) error {
 	if mock.LoginFunc == nil {
 		panic("CLIMock.LoginFunc: method is nil but CLI.Login was just called")
 	}
 	callInfo := struct {
-		Ctx        context.Context
-		Credential *config.Credential
-		TenantID   string
+		Ctx context.Context
 	}{
-		Ctx:        ctx,
-		Credential: credential,
-		TenantID:   tenantID,
+		Ctx: ctx,
 	}
 	mock.lockLogin.Lock()
 	mock.calls.Login = append(mock.calls.Login, callInfo)
 	mock.lockLogin.Unlock()
-	return mock.LoginFunc(ctx, credential, tenantID)
+	return mock.LoginFunc(ctx)
 }
 
 // LoginCalls gets all the calls that were made to Login.
@@ -86,14 +100,10 @@ func (mock *CLIMock) Login(ctx context.Context, credential *config.Credential, t
 //
 //	len(mockedCLI.LoginCalls())
 func (mock *CLIMock) LoginCalls() []struct {
-	Ctx        context.Context
-	Credential *config.Credential
-	TenantID   string
+	Ctx context.Context
 } {
 	var calls []struct {
-		Ctx        context.Context
-		Credential *config.Credential
-		TenantID   string
+		Ctx context.Context
 	}
 	mock.lockLogin.RLock()
 	calls = mock.calls.Login
@@ -101,38 +111,98 @@ func (mock *CLIMock) LoginCalls() []struct {
 	return calls
 }
 
-// SetSubscription calls SetSubscriptionFunc.
-func (mock *CLIMock) SetSubscription(ctx context.Context, subscriptionID string) error {
-	if mock.SetSubscriptionFunc == nil {
-		panic("CLIMock.SetSubscriptionFunc: method is nil but CLI.SetSubscription was just called")
+// WithCredential calls WithCredentialFunc.
+func (mock *CLIMock) WithCredential(credential *config.Credential) CLI {
+	if mock.WithCredentialFunc == nil {
+		panic("CLIMock.WithCredentialFunc: method is nil but CLI.WithCredential was just called")
 	}
 	callInfo := struct {
-		Ctx            context.Context
-		SubscriptionID string
+		Credential *config.Credential
 	}{
-		Ctx:            ctx,
-		SubscriptionID: subscriptionID,
+		Credential: credential,
 	}
-	mock.lockSetSubscription.Lock()
-	mock.calls.SetSubscription = append(mock.calls.SetSubscription, callInfo)
-	mock.lockSetSubscription.Unlock()
-	return mock.SetSubscriptionFunc(ctx, subscriptionID)
+	mock.lockWithCredential.Lock()
+	mock.calls.WithCredential = append(mock.calls.WithCredential, callInfo)
+	mock.lockWithCredential.Unlock()
+	return mock.WithCredentialFunc(credential)
 }
 
-// SetSubscriptionCalls gets all the calls that were made to SetSubscription.
+// WithCredentialCalls gets all the calls that were made to WithCredential.
 // Check the length with:
 //
-//	len(mockedCLI.SetSubscriptionCalls())
-func (mock *CLIMock) SetSubscriptionCalls() []struct {
-	Ctx            context.Context
+//	len(mockedCLI.WithCredentialCalls())
+func (mock *CLIMock) WithCredentialCalls() []struct {
+	Credential *config.Credential
+} {
+	var calls []struct {
+		Credential *config.Credential
+	}
+	mock.lockWithCredential.RLock()
+	calls = mock.calls.WithCredential
+	mock.lockWithCredential.RUnlock()
+	return calls
+}
+
+// WithSubscription calls WithSubscriptionFunc.
+func (mock *CLIMock) WithSubscription(subscriptionID string) CLI {
+	if mock.WithSubscriptionFunc == nil {
+		panic("CLIMock.WithSubscriptionFunc: method is nil but CLI.WithSubscription was just called")
+	}
+	callInfo := struct {
+		SubscriptionID string
+	}{
+		SubscriptionID: subscriptionID,
+	}
+	mock.lockWithSubscription.Lock()
+	mock.calls.WithSubscription = append(mock.calls.WithSubscription, callInfo)
+	mock.lockWithSubscription.Unlock()
+	return mock.WithSubscriptionFunc(subscriptionID)
+}
+
+// WithSubscriptionCalls gets all the calls that were made to WithSubscription.
+// Check the length with:
+//
+//	len(mockedCLI.WithSubscriptionCalls())
+func (mock *CLIMock) WithSubscriptionCalls() []struct {
 	SubscriptionID string
 } {
 	var calls []struct {
-		Ctx            context.Context
 		SubscriptionID string
 	}
-	mock.lockSetSubscription.RLock()
-	calls = mock.calls.SetSubscription
-	mock.lockSetSubscription.RUnlock()
+	mock.lockWithSubscription.RLock()
+	calls = mock.calls.WithSubscription
+	mock.lockWithSubscription.RUnlock()
+	return calls
+}
+
+// WithTenant calls WithTenantFunc.
+func (mock *CLIMock) WithTenant(tenantID string) CLI {
+	if mock.WithTenantFunc == nil {
+		panic("CLIMock.WithTenantFunc: method is nil but CLI.WithTenant was just called")
+	}
+	callInfo := struct {
+		TenantID string
+	}{
+		TenantID: tenantID,
+	}
+	mock.lockWithTenant.Lock()
+	mock.calls.WithTenant = append(mock.calls.WithTenant, callInfo)
+	mock.lockWithTenant.Unlock()
+	return mock.WithTenantFunc(tenantID)
+}
+
+// WithTenantCalls gets all the calls that were made to WithTenant.
+// Check the length with:
+//
+//	len(mockedCLI.WithTenantCalls())
+func (mock *CLIMock) WithTenantCalls() []struct {
+	TenantID string
+} {
+	var calls []struct {
+		TenantID string
+	}
+	mock.lockWithTenant.RLock()
+	calls = mock.calls.WithTenant
+	mock.lockWithTenant.RUnlock()
 	return calls
 }

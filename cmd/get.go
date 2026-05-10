@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/lvlcn-t/azctx/az"
@@ -11,7 +12,7 @@ import (
 
 type getCmd struct {
 	loader config.Loader
-	az     func() (az.CLI, error)
+	az     func(ctx context.Context) (az.CLI, error)
 }
 
 // newGetCmd prints details for one context.

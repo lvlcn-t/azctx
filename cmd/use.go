@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/lvlcn-t/azctx/az"
@@ -9,7 +10,7 @@ import (
 )
 
 type useCommand struct {
-	az     func() (az.CLI, error)
+	az     func(ctx context.Context) (az.CLI, error)
 	loader config.Loader
 	writer config.Writer
 }
@@ -38,7 +39,7 @@ func newUseCmd() *cobra.Command {
 
 // run executes the use command.
 func (c *useCommand) run(cmd *cobra.Command, args []string) error {
-	azcli, err := c.az()
+	azcli, err := c.az(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("create az client: %w", err)
 	}
@@ -68,12 +69,12 @@ func (c *useCommand) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("tenant %q is missing id", tenant.Name)
 	}
 
-	if err = azcli.Login(cmd.Context(), &credential, tenant.ID); err != nil {
-		return err
-	}
-
-	if err = azcli.SetSubscription(cmd.Context(), ctx.Subscription); err != nil {
-		return err
+	err = azcli.WithTenant(tenant.ID).
+		WithCredential(&credential).
+		WithSubscription(ctx.Subscription).
+		Login(cmd.Context())
+	if err != nil {
+		return fmt.Errorf("az login: %w", err)
 	}
 
 	path := store.PathForCurrentContext()

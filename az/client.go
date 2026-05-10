@@ -1,13 +1,10 @@
 package az
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
-	"os/exec"
 	"strings"
 	"sync"
 
@@ -19,106 +16,141 @@ import (
 const (
 	azInstallURL = "https://aka.ms/install-azure-cli"
 
-	flagLogin            = "login"
-	flagServicePrincipal = "--service-principal"
-	flagUsername         = "--username"
-	flagTenant           = "--tenant"
-	flagPassword         = "--password"
-	flagFederatedToken   = "--federated-token"
+	flagLogin               = "login"
+	flagServicePrincipal    = "--service-principal"
+	flagUsername            = "--username"
+	flagTenant              = "--tenant"
+	flagPassword            = "--password"
+	flagFederatedToken      = "--federated-token"
+	flagSubscription        = "--subscription"
+	flagDisableSubDiscovery = "--skip-subscription-discovery"
 )
 
-// errCLIUnavailable indicates that the Azure CLI is not installed.
 var (
-	errCLIUnavailable    = errors.New("az CLI not found")
+	// errCLIUnavailable indicates that the Azure CLI is not installed.
+	errCLIUnavailable = errors.New("az CLI not found")
+	// errTempCertMayRemain indicates that a temporary certificate file may not have been removed due to an os error.
 	errTempCertMayRemain = errors.New("temporary cert file may remain on filesystem")
 )
 
 //go:generate go tool moq -out client_moq.go . CLI
 type CLI interface {
-	Login(ctx context.Context, credential *config.Credential, tenantID string) error
-	SetSubscription(ctx context.Context, subscriptionID string) error
+	// WithCredential adds the given credential to the client for use in subsequent Login calls.
+	WithCredential(credential *config.Credential) CLI
+	// WithTenant adds the given tenant ID to the client for use in subsequent Login calls.
+	WithTenant(tenantID string) CLI
+	// WithSubscription adds the given subscription ID to the client for use in subsequent Login calls.
+	WithSubscription(subscriptionID string) CLI
+	// Login authenticates Azure CLI for the given credential, tenant and optional subscription.
+	Login(ctx context.Context) error
 }
 
 type client struct {
-	kvResolver *keyvault.Resolver
+	azVersion      version
+	credential     *config.Credential
+	tenantID       string
+	subscriptionID string
+	kvResolver     *keyvault.Resolver
 }
 
-func NewClient() (CLI, error) {
+func NewClient(ctx context.Context) (CLI, error) {
 	if err := ensureInstalled(); err != nil {
 		return nil, err
 	}
-	return &client{}, nil
-}
 
-// Login authenticates Azure CLI for the given credential and tenant.
-func (c *client) Login(ctx context.Context, credential *config.Credential, tenantID string) error {
-	if err := credential.Validate(); err != nil {
-		return fmt.Errorf("invalid credential %q: %w", credential.Name, err)
+	v, err := azVersion(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: failed to get az CLI version: %v\n", err)
+		v = "0.0.0"
 	}
 
-	switch credential.Type {
+	return &client{azVersion: v}, nil
+}
+
+func (c *client) WithCredential(credential *config.Credential) CLI {
+	c.credential = credential
+	return c
+}
+
+func (c *client) WithTenant(tenantID string) CLI {
+	c.tenantID = tenantID
+	return c
+}
+
+func (c *client) WithSubscription(subscriptionID string) CLI {
+	c.subscriptionID = subscriptionID
+	return c
+}
+
+// Login authenticates Azure CLI for the given credential, tenant and optional subscription.
+func (c *client) Login(ctx context.Context) error {
+	if c.credential == nil {
+		return errors.New("credential is required")
+	}
+
+	if c.tenantID == "" {
+		return errors.New("tenant ID is required")
+	}
+
+	if err := c.credential.Validate(); err != nil {
+		return fmt.Errorf("invalid credential %q: %w", c.credential.Name, err)
+	}
+
+	if err := c.login(ctx); err != nil {
+		return err
+	}
+
+	if !c.azVersion.supportsScopedLogin() && c.subscriptionID != "" {
+		return az(ctx, "account", "set", flagSubscription, c.subscriptionID)
+	}
+
+	return nil
+}
+
+func (c *client) login(ctx context.Context) error {
+	args := []string{flagLogin}
+
+	switch c.credential.Type {
 	case config.CredentialTypeServicePrincipal:
-		return c.loginServicePrincipal(ctx, credential, tenantID)
+		return c.loginServicePrincipal(ctx)
 	case config.CredentialTypeUser:
 		return withLoginExperienceOff(func() error {
-			return az(ctx, flagLogin, flagTenant, tenantID, "--output", "none")
+			args = append(args, flagTenant, c.tenantID, "--output", "none")
+			args = c.appendScopedLoginArgs(args)
+			return az(ctx, args...)
 		})
 	case config.CredentialTypeManagedIdentity:
-		args := []string{flagLogin, "--identity"}
-		if credential.ClientID != "" {
-			args = append(args, "--client-id", credential.ClientID)
-		}
-
+		args = append(args, "--identity")
+		args = appendIf(c.credential.ClientID != "", args, "--client-id", c.credential.ClientID)
+		args = c.appendScopedLoginArgs(args)
 		return az(ctx, args...)
 	case config.CredentialTypeOIDC:
-		token, err := afero.ReadFile(fsys, credential.FederatedTokenFile)
-		if err != nil {
-			return fmt.Errorf("read federated token file %q: %w", credential.FederatedTokenFile, err)
-		}
-
-		trimmedToken := strings.TrimSpace(string(token))
-		if trimmedToken == "" {
-			return fmt.Errorf("federated token file %q is empty", credential.FederatedTokenFile)
-		}
-
-		return az(
-			ctx,
-			flagLogin,
-			flagServicePrincipal,
-			flagUsername, credential.ClientID,
-			flagTenant, tenantID,
-			flagFederatedToken, trimmedToken,
-		)
+		return c.loginWithOIDC(ctx)
 	default:
-		return fmt.Errorf("unsupported credential type %q", credential.Type)
+		return fmt.Errorf("unsupported credential type %q", c.credential.Type)
 	}
 }
 
-// SetSubscription sets the active subscription with a context.
-func (c *client) SetSubscription(ctx context.Context, subscriptionID string) error {
-	if strings.TrimSpace(subscriptionID) == "" {
-		return nil
-	}
-
-	return az(ctx, "account", "set", "--subscription", subscriptionID)
-}
-
-func (c *client) loginServicePrincipal(ctx context.Context, credential *config.Credential, tenantID string) error {
+// loginServicePrincipal performs az login with a service principal credential.
+func (c *client) loginServicePrincipal(ctx context.Context) error {
 	args := []string{
 		flagLogin,
 		flagServicePrincipal,
-		flagUsername, credential.ClientID,
-		flagTenant, tenantID,
+		flagUsername, c.credential.ClientID,
+		flagTenant, c.tenantID,
+	}
+	args = c.appendScopedLoginArgs(args)
+
+	if c.credential.ClientSecret != "" {
+		return c.loginWithSecret(ctx, args)
 	}
 
-	if credential.ClientSecret != "" {
-		return c.loginWithSecret(ctx, args, credential.ClientSecret)
-	}
-
-	return c.loginWithCert(ctx, args, credential.ClientCertificatePath)
+	return c.loginWithCert(ctx, args)
 }
 
-func (c *client) loginWithSecret(ctx context.Context, args []string, secret string) error {
+// loginWithSecret performs az login with a client secret, resolving from Key Vault if needed.
+func (c *client) loginWithSecret(ctx context.Context, args []string) error {
+	secret := c.credential.ClientSecret
 	if keyvault.IsReference(secret) {
 		kv, err := c.resolver()
 		if err != nil {
@@ -136,7 +168,9 @@ func (c *client) loginWithSecret(ctx context.Context, args []string, secret stri
 	return az(ctx, append(args, flagPassword, secret)...)
 }
 
-func (c *client) loginWithCert(ctx context.Context, args []string, certPath string) error {
+// loginWithCert performs az login with a client certificate, resolving from Key Vault if needed.
+func (c *client) loginWithCert(ctx context.Context, args []string) error {
+	certPath := c.credential.ClientCertificatePath
 	if keyvault.IsReference(certPath) {
 		resolver, err := c.resolver()
 		if err != nil {
@@ -179,145 +213,45 @@ func (c *client) loginWithCert(ctx context.Context, args []string, certPath stri
 	return az(ctx, append(args, "--certificate", certPath)...)
 }
 
-// resolver returns the keyvault resolver, creating it lazily on first use.
-func (c *client) resolver() (*keyvault.Resolver, error) {
-	if c.kvResolver != nil {
-		return c.kvResolver, nil
-	}
-
-	kvClient, err := keyvault.NewAzureClient()
+// loginWithOIDC performs az login with an OIDC federated token credential.
+func (c *client) loginWithOIDC(ctx context.Context) error {
+	t, err := afero.ReadFile(fsys, c.credential.FederatedTokenFile)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("read federated token file %q: %w", c.credential.FederatedTokenFile, err)
 	}
 
-	c.kvResolver = keyvault.NewResolver(kvClient)
+	token := strings.TrimSpace(string(t))
+	if token == "" {
+		return fmt.Errorf("federated token file %q is empty", c.credential.FederatedTokenFile)
+	}
 
-	return c.kvResolver, nil
+	args := []string{
+		flagLogin,
+		flagServicePrincipal,
+		flagUsername, c.credential.ClientID,
+		flagTenant, c.tenantID,
+		flagFederatedToken, token,
+	}
+	args = c.appendScopedLoginArgs(args)
+
+	return az(ctx, args...)
 }
 
-// ensureInstalled validates that az is available in PATH.
-func ensureInstalled() error {
-	if _, err := exec.LookPath("az"); err != nil {
-		return fmt.Errorf("%w in PATH. install it from %s", errCLIUnavailable, azInstallURL)
+func (c *client) appendScopedLoginArgs(args []string) []string {
+	if !c.azVersion.supportsScopedLogin() {
+		return args
 	}
 
-	return nil
+	args = appendIf(c.subscriptionID != "", args, flagSubscription, c.subscriptionID)
+	args = append(args, flagDisableSubDiscovery)
+
+	return args
 }
 
-// az executes one Azure CLI command.
-func az(ctx context.Context, args ...string) error {
-	command := exec.CommandContext(ctx, "az", args...)
-
-	var stderr bytes.Buffer
-	command.Stdout = os.Stdout
-	command.Stderr = &stderr
-
-	if err := command.Run(); err != nil {
-		stderrText := strings.TrimSpace(stderr.String())
-		if stderrText != "" {
-			return fmt.Errorf("az %s failed: %w: %s", redactArgs(args), err, stderrText)
-		}
-
-		return fmt.Errorf("az %s failed: %w", redactArgs(args), err)
+// appendIf appends elems to slice if condition is true, otherwise returns slice unchanged.
+func appendIf[T any](condition bool, slice []T, elems ...T) []T {
+	if condition {
+		return append(slice, elems...)
 	}
-
-	return nil
-}
-
-// sensitiveFlags lists az CLI flags whose values must not appear in error messages.
-var sensitiveFlags = map[string]struct{}{
-	flagPassword:       {},
-	flagFederatedToken: {},
-}
-
-// redactArgs returns a joined argument string with sensitive flag values replaced.
-func redactArgs(args []string) string {
-	redacted := make([]string, len(args))
-	copy(redacted, args)
-
-	for i, arg := range redacted {
-		if _, ok := sensitiveFlags[arg]; ok && i+1 < len(redacted) {
-			redacted[i+1] = "[REDACTED]"
-		}
-	}
-
-	return strings.Join(redacted, " ")
-}
-
-// writeTempCert writes PEM bytes to a temporary file with restricted
-// permissions and returns the file path.
-func writeTempCert(pem []byte) (path string, err error) {
-	f, err := afero.TempFile(fsys, "", "azctx-cert-*.pem")
-	if err != nil {
-		return "", err
-	}
-
-	name := f.Name()
-
-	closed := false
-	closeFile := func() error {
-		if closed {
-			return nil
-		}
-
-		// We're tracking the closed state before calling Close() because Close
-		// must be treated as a one-shot operation. The io.Closer contract says
-		// behavior after the first Close is undefined unless the implementation
-		// documents otherwise:
-		// https://pkg.go.dev/io#Closer
-		//
-		// On POSIX-like systems, close errors may be reported after the file
-		// descriptor has already been released, so retrying Close can be unsafe:
-		// the descriptor number may have been reused and a retry could close
-		// something unrelated. Linux documents this explicitly:
-		// https://man7.org/linux/man-pages/man2/close.2.html
-		closed = true
-		if cErr := f.Close(); cErr != nil {
-			return fmt.Errorf("closing temp cert file %q: %w", name, cErr)
-		}
-
-		return nil
-	}
-
-	cleanup := func(cause error) error {
-		cErr := closeFile()
-		return errors.Join(cause, cErr, removeTempCert(name))
-	}
-
-	keep := false
-	defer func() {
-		if !keep {
-			err = cleanup(err)
-			path = ""
-		}
-	}()
-
-	const certFileMode fs.FileMode = 0o600
-	if err = fsys.Chmod(name, certFileMode); err != nil {
-		return "", fmt.Errorf("setting permissions on temp cert file %q: %w", name, err)
-	}
-
-	if _, err = f.Write(pem); err != nil {
-		return "", fmt.Errorf("writing to temp cert file %q: %w", name, err)
-	}
-
-	if err = closeFile(); err != nil {
-		return "", err
-	}
-
-	keep = true
-	return name, nil
-}
-
-// removeTempCert attempts to remove the temporary certificate file at the given path.
-func removeTempCert(path string) error {
-	if err := fsys.Remove(path); err != nil {
-		return fmt.Errorf("%w: failed to remove temp cert file %q: %w",
-			errTempCertMayRemain,
-			path,
-			err,
-		)
-	}
-
-	return nil
+	return slice
 }
