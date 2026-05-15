@@ -1,9 +1,15 @@
 version: 2
 project_name: azctx
+
+metadata:
+  mod_timestamp: "{{ .CommitTimestamp }}"
+
 builds:
   - id: linux
-    env: [ CGO_ENABLED=0, GOEXPERIMENT=jsonv2 ]
+    env: [CGO_ENABLED=0, GOEXPERIMENT=jsonv2]
     main: .
+    flags:
+      - -trimpath
     ldflags:
       - -s -w -X main.version={{ .Tag }}
       - -extldflags "-static"
@@ -12,9 +18,12 @@ builds:
     goarch:
       - amd64
       - arm64
+
   - id: darwin-windows
-    env: [ CGO_ENABLED=0, GOEXPERIMENT=jsonv2 ]
+    env: [CGO_ENABLED=0, GOEXPERIMENT=jsonv2]
     main: .
+    flags:
+      - -trimpath
     ldflags:
       - -s -w -X main.version={{ .Tag }}
     goos:
@@ -23,35 +32,85 @@ builds:
     goarch:
       - amd64
       - arm64
+
 archives:
-  - name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+  - id: azctx
+    name_template: >-
+      {{- .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end -}}
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    builds_info:
+      group: root
+      owner: root
+      mtime: "{{ .CommitDate }}"
+    files:
+      - src: README.md
+        info:
+          owner: root
+          group: root
+          mtime: "{{ .CommitDate }}"
+      - src: LICENSE
+        info:
+          owner: root
+          group: root
+          mtime: "{{ .CommitDate }}"
+
+checksum:
+  name_template: checksums.txt
+
+homebrew_casks:
+  - name: azctx
+    ids:
+      - azctx
+    repository:
+      owner: lvlcn-t
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    commit_msg_template: "feat: update {{ .ProjectName }} to {{ .Tag }}"
+    commit_author:
+      name: lvlcn-t
+      email: 75443136+lvlcn-t@users.noreply.github.com
+
+    homepage: https://github.com/lvlcn-t/azctx
+    description: Faster way to switch between tenants and subscriptions with az
+    license: MIT
+    binaries:
+      - azctx
+    dependencies:
+      - formula: azure-cli
+    url:
+      verified: github.com/lvlcn-t/azctx/releases/download
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/azctx"]
+          end
+    zap:
+      trash:
+        - "~/Library/Application Support/azctx"
+
 dockers_v2:
   - ids:
       - linux
     images:
-      - "ghcr.io/lvlcn-t/azctx"
+      - ghcr.io/lvlcn-t/azctx
     tags:
-      - "latest"
+      - latest
       - "{{ .Tag }}"
       - "v{{ .Major }}.{{ .Minor }}"
       - "v{{ .Major }}"
     labels:
       "org.opencontainers.image.title": "{{ .ProjectName }}"
-      "org.opencontainers.image.description": "{{ .ProjectName }}"
+      "org.opencontainers.image.description": "Faster way to switch between tenants and subscriptions with az"
       "org.opencontainers.image.url": "https://lvlcn-t.dev"
       "org.opencontainers.image.source": "https://github.com/lvlcn-t/azctx"
       "org.opencontainers.image.version": "{{ .Version }}"
       "org.opencontainers.image.created": "{{ .Timestamp }}"
       "org.opencontainers.image.revision": "{{ .FullCommit }}"
       "org.opencontainers.image.licenses": "MIT"
-
-# nfpms:
-#   - maintainer: lvlcn-t <75443136+lvlcn-t@users.noreply.github.com>
-#     description: |-
-#       #
-#     homepage: https://github.com/lvlcn-t
-#     license: MIT
-#     formats:
-#       - deb
-#       - rpm
-#       - apk

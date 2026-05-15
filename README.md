@@ -9,7 +9,9 @@
 
 - [About this component](#about-this-component)
 - [Installation](#installation)
-  - [Binary](#binary)
+  - [Homebrew](#homebrew)
+  - [go install](#go-install)
+  - [Manual](#manual)
   - [Container Image](#container-image)
 - [Usage](#usage)
   - [Config file](#config-file)
@@ -34,26 +36,32 @@ context and syncs the Azure CLI session by calling `az login` and
 
 ## Installation
 
-### Binary
+### Homebrew
+
+```bash
+brew install lvlcn-t/tap/azctx
+```
+
+### go install
+
+Requires Go 1.26+ and the `GOEXPERIMENT=jsonv2` flag:
+
+```bash
+GOEXPERIMENT=jsonv2 go install github.com/lvlcn-t/azctx@latest
+```
+
+### Manual
 
 Download the archive for your platform from the
 [releases page](../../releases), extract the binary, and place it on
 your `PATH`.
 
-**Linux**:
+**Linux / macOS**:
 
 ```bash
-ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
-curl -sL "https://github.com/lvlcn-t/azctx/releases/latest/download/azctx_linux_${ARCH}.tar.gz" \
-  | tar -xz -C ~/.local/bin azctx
-chmod +x ~/.local/bin/azctx
-```
-
-**macOS**:
-
-```bash
-ARCH=$(uname -m | sed 's/x86_64/amd64/')
-curl -sL "https://github.com/lvlcn-t/azctx/releases/latest/download/azctx_darwin_${ARCH}.tar.gz" \
+OS=$(uname -s)
+ARCH=$(uname -m | sed 's/aarch64/arm64/')
+curl -sL "https://github.com/lvlcn-t/azctx/releases/latest/download/azctx_${OS}_${ARCH}.tar.gz" \
   | tar -xz -C ~/.local/bin azctx
 chmod +x ~/.local/bin/azctx
 ```
@@ -61,15 +69,15 @@ chmod +x ~/.local/bin/azctx
 **Windows** (PowerShell):
 
 ```powershell
-$arch = $env:PROCESSOR_ARCHITECTURE.ToLower()
-$url = "https://github.com/lvlcn-t/azctx/releases/latest/download/azctx_windows_$arch.tar.gz"
-Invoke-WebRequest $url -OutFile azctx.tar.gz
-tar -xf azctx.tar.gz azctx.exe
+$arch = if ($env:PROCESSOR_ARCHITECTURE -eq "AMD64") { "x86_64" } else { "arm64" }
+$url = "https://github.com/lvlcn-t/azctx/releases/latest/download/azctx_Windows_$arch.zip"
+Invoke-WebRequest $url -OutFile azctx.zip
+Expand-Archive azctx.zip -DestinationPath .
 Move-Item azctx.exe "$env:LOCALAPPDATA\Microsoft\WindowsApps\azctx.exe"
 ```
 
 Verify integrity by checking the downloaded archive against
-`azctx_*_checksums.txt` published alongside each release.
+`checksums.txt` published alongside each release.
 
 ### Container Image
 
