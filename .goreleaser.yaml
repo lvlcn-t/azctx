@@ -85,6 +85,8 @@ homebrew_casks:
       - formula: azure-cli
     url:
       verified: github.com/lvlcn-t/azctx/releases/download
+    generate_completions_from_executable:
+      shell_parameter_format: cobra
     hooks:
       post:
         install: |
