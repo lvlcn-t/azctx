@@ -10,7 +10,6 @@ import (
 
 	"github.com/lvlcn-t/azctx/config"
 	"github.com/lvlcn-t/azctx/keyvault"
-	"github.com/spf13/afero"
 )
 
 const (
@@ -110,7 +109,7 @@ func (c *client) Login(ctx context.Context) error {
 func (c *client) login(ctx context.Context) error {
 	args := []string{flagLogin}
 
-	switch c.credential.Type {
+	switch c.credential.Credential.Type {
 	case config.CredentialTypeServicePrincipal:
 		return c.loginServicePrincipal(ctx)
 	case config.CredentialTypeUser:
@@ -121,13 +120,13 @@ func (c *client) login(ctx context.Context) error {
 		})
 	case config.CredentialTypeManagedIdentity:
 		args = append(args, "--identity")
-		args = appendIf(c.credential.ClientID != "", args, "--client-id", c.credential.ClientID)
+		args = appendIf(c.credential.Credential.Azure.ClientID != "", args, "--client-id", c.credential.Credential.Azure.ClientID)
 		args = c.appendScopedLoginArgs(args)
 		return az(ctx, args...)
-	case config.CredentialTypeOIDC:
-		return c.loginWithOIDC(ctx)
+	case config.CredentialTypeWorkloadIdentity:
+		return c.loginWithWorkloadIdentity(ctx)
 	default:
-		return fmt.Errorf("unsupported credential type %q", c.credential.Type)
+		return fmt.Errorf("unsupported credential type %q", c.credential.Credential.Type)
 	}
 }
 
@@ -136,12 +135,12 @@ func (c *client) loginServicePrincipal(ctx context.Context) error {
 	args := []string{
 		flagLogin,
 		flagServicePrincipal,
-		flagUsername, c.credential.ClientID,
+		flagUsername, c.credential.Credential.Azure.ClientID,
 		flagTenant, c.tenantID,
 	}
 	args = c.appendScopedLoginArgs(args)
 
-	if c.credential.ClientSecret != "" {
+	if c.credential.Credential.Azure.ClientSecret != "" {
 		return c.loginWithSecret(ctx, args)
 	}
 
@@ -150,7 +149,7 @@ func (c *client) loginServicePrincipal(ctx context.Context) error {
 
 // loginWithSecret performs az login with a client secret, resolving from Key Vault if needed.
 func (c *client) loginWithSecret(ctx context.Context, args []string) error {
-	secret := c.credential.ClientSecret
+	secret := c.credential.Credential.Azure.ClientSecret
 	if keyvault.IsReference(secret) {
 		kv, err := c.resolver()
 		if err != nil {
@@ -170,7 +169,7 @@ func (c *client) loginWithSecret(ctx context.Context, args []string) error {
 
 // loginWithCert performs az login with a client certificate, resolving from Key Vault if needed.
 func (c *client) loginWithCert(ctx context.Context, args []string) error {
-	certPath := c.credential.ClientCertificatePath
+	certPath := c.credential.Credential.Azure.ClientCertificatePath
 	if keyvault.IsReference(certPath) {
 		resolver, err := c.resolver()
 		if err != nil {
@@ -213,22 +212,32 @@ func (c *client) loginWithCert(ctx context.Context, args []string) error {
 	return az(ctx, append(args, "--certificate", certPath)...)
 }
 
-// loginWithOIDC performs az login with an OIDC federated token credential.
-func (c *client) loginWithOIDC(ctx context.Context) error {
-	t, err := afero.ReadFile(fsys, c.credential.FederatedTokenFile)
-	if err != nil {
-		return fmt.Errorf("read federated token file %q: %w", c.credential.FederatedTokenFile, err)
-	}
+// loginWithWorkloadIdentity performs az login with an OIDC federated token credential.
+func (c *client) loginWithWorkloadIdentity(ctx context.Context) error {
+	var token string
+	switch c.credential.Credential.Token.Source {
+	case config.TokenSourceFile:
+		t, err := os.ReadFile(c.credential.Credential.Token.File.Path)
+		if err != nil {
+			return fmt.Errorf("read federated token file %q: %w", c.credential.Credential.Token.File.Path, err)
+		}
+		token = strings.TrimSpace(string(t))
+		if token == "" {
+			return fmt.Errorf("federated token file %q is empty", c.credential.Credential.Token.File.Path)
+		}
 
-	token := strings.TrimSpace(string(t))
-	if token == "" {
-		return fmt.Errorf("federated token file %q is empty", c.credential.FederatedTokenFile)
+	case config.TokenSourceOAuth2:
+		// TODO: implement support for fetching the id token from the configured OIDC provider.
+		return errors.New("oauth2 token source is not yet supported for workload identity credentials")
+
+	default:
+		return fmt.Errorf("unsupported token source %q for workload identity credential", c.credential.Credential.Token.Source)
 	}
 
 	args := []string{
 		flagLogin,
 		flagServicePrincipal,
-		flagUsername, c.credential.ClientID,
+		flagUsername, c.credential.Credential.Azure.ClientID,
 		flagTenant, c.tenantID,
 		flagFederatedToken, token,
 	}

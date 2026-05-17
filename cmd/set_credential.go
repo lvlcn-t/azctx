@@ -61,7 +61,7 @@ func (c *setCredentialCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("read type flag: %w", err)
 	}
 
-	credType, err := config.ParseCredentialType(typeRaw)
+	credType, err := config.NewCredentialType(typeRaw)
 	if err != nil {
 		return err
 	}
@@ -87,12 +87,21 @@ func (c *setCredentialCmd) run(cmd *cobra.Command, args []string) error {
 	}
 
 	nextCredential := config.Credential{
-		Name:                  credName,
-		Type:                  credType,
-		ClientID:              clientID,
-		ClientSecret:          clientSecret,
-		ClientCertificatePath: certPath,
-		FederatedTokenFile:    fedTokenFile,
+		Name: credName,
+		Credential: config.CredentialDetails{
+			Type: credType,
+			Azure: config.AzureCredential{
+				ClientID:              clientID,
+				ClientSecret:          clientSecret,
+				ClientCertificatePath: certPath,
+			},
+			Token: config.Token{
+				Source: config.TokenSourceFile,
+				File: &config.FileSource{
+					Path: fedTokenFile,
+				},
+			},
+		},
 	}
 
 	if err = nextCredential.Validate(); err != nil {

@@ -23,3 +23,7 @@ dev: build ## Build and run the CLI, you can pass subcommands like: make dev use
 .PHONY: build
 build: ## Build the CLI binary
 	@go build -ldflags="$(LDFLAGS)" -o bin/azctx main.go
+
+.PHONY: test
+test: ## Run all tests
+	@go test -race -cover -count=1 -v ./...

@@ -55,23 +55,23 @@ func (c *useCommand) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("context %q not found", ctxName)
 	}
 
-	tenant, found := store.Config.TenantByName(ctx.Tenant)
+	tenant, found := store.Config.TenantByName(ctx.Context.Tenant)
 	if !found {
-		return fmt.Errorf("tenant %q not found for context %q", ctx.Tenant, ctx.Name)
+		return fmt.Errorf("tenant %q not found for context %q", ctx.Context.Tenant, ctx.Name)
 	}
 
-	credential, found := store.Config.CredentialByName(ctx.Credential)
+	credential, found := store.Config.CredentialByName(ctx.Context.Credential)
 	if !found {
-		return fmt.Errorf("credential %q not found for context %q", ctx.Credential, ctx.Name)
+		return fmt.Errorf("credential %q not found for context %q", ctx.Context.Credential, ctx.Name)
 	}
 
-	if tenant.ID == "" {
+	if tenant.Tenant.ID == "" {
 		return fmt.Errorf("tenant %q is missing id", tenant.Name)
 	}
 
-	err = azcli.WithTenant(tenant.ID).
+	err = azcli.WithTenant(tenant.Tenant.ID).
 		WithCredential(&credential).
-		WithSubscription(ctx.Subscription).
+		WithSubscription(ctx.Context.Subscription).
 		Login(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("az login: %w", err)
