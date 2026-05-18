@@ -27,3 +27,7 @@ build: ## Build the CLI binary
 .PHONY: test
 test: ## Run all tests
 	@go test -race -cover -count=1 -v ./...
+
+.PHONY: docs
+docs: ## Generate CLI reference documentation
+	@go generate ./internal/gendoc/...
