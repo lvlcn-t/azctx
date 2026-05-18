@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 
 	"github.com/lvlcn-t/azctx/config"
@@ -43,6 +42,8 @@ type CLI interface {
 	WithSubscription(subscriptionID string) CLI
 	// AllowNoSubscriptions configures the client to allow logging in without a subscription.
 	AllowNoSubscriptions(allow bool) CLI
+	// WithFederatedToken sets a pre-acquired federated token for workload identity login.
+	WithFederatedToken(token string) CLI
 	// Login authenticates Azure CLI for the given credential, tenant and optional subscription.
 	Login(ctx context.Context) error
 }
@@ -52,6 +53,7 @@ type client struct {
 	credential           *config.Credential
 	tenantID             string
 	subscriptionID       string
+	federatedToken       string
 	allowNoSubscriptions bool
 	kvResolver           *keyvault.Resolver
 }
@@ -87,6 +89,11 @@ func (c *client) WithSubscription(subscriptionID string) CLI {
 
 func (c *client) AllowNoSubscriptions(allow bool) CLI {
 	c.allowNoSubscriptions = allow
+	return c
+}
+
+func (c *client) WithFederatedToken(token string) CLI {
+	c.federatedToken = token
 	return c
 }
 
@@ -224,24 +231,8 @@ func (c *client) loginWithCert(ctx context.Context, args []string) error {
 
 // loginWithWorkloadIdentity performs az login with an OIDC federated token credential.
 func (c *client) loginWithWorkloadIdentity(ctx context.Context) error {
-	var token string
-	switch c.credential.Credential.Token.Source {
-	case config.TokenSourceFile:
-		t, err := os.ReadFile(c.credential.Credential.Token.File.Path)
-		if err != nil {
-			return fmt.Errorf("read federated token file %q: %w", c.credential.Credential.Token.File.Path, err)
-		}
-		token = strings.TrimSpace(string(t))
-		if token == "" {
-			return fmt.Errorf("federated token file %q is empty", c.credential.Credential.Token.File.Path)
-		}
-
-	case config.TokenSourceOAuth2:
-		// TODO: implement support for fetching the id token from the configured OIDC provider.
-		return errors.New("oauth2 token source is not yet supported for workload identity credentials")
-
-	default:
-		return fmt.Errorf("unsupported token source %q for workload identity credential", c.credential.Credential.Token.Source)
+	if c.federatedToken == "" {
+		return errors.New("federated token is required for workload identity login")
 	}
 
 	args := []string{
@@ -249,7 +240,7 @@ func (c *client) loginWithWorkloadIdentity(ctx context.Context) error {
 		flagServicePrincipal,
 		flagUsername, c.credential.Credential.Azure.ClientID,
 		flagTenant, c.tenantID,
-		flagFederatedToken, token,
+		flagFederatedToken, c.federatedToken,
 	}
 	args = c.appendScopedLoginArgs(args)
 

@@ -122,7 +122,7 @@ func TestCredentialValidate(t *testing.T) {
 					Azure: AzureCredential{
 						ClientID: clientIDVal,
 					},
-					Token: Token{
+					Token: TokenDetails{
 						Source: TokenSourceFile,
 						File: &FileSource{
 							Path: "/tmp/token",
@@ -149,7 +149,7 @@ func TestCredentialValidate(t *testing.T) {
 				Credential: CredentialDetails{
 					Type:  CredentialTypeWorkloadIdentity,
 					Azure: AzureCredential{ClientID: clientIDVal},
-					Token: Token{
+					Token: TokenDetails{
 						Source: TokenSourceFile,
 						File:   &FileSource{},
 					},
@@ -164,7 +164,7 @@ func TestCredentialValidate(t *testing.T) {
 				Credential: CredentialDetails{
 					Type:  CredentialTypeWorkloadIdentity,
 					Azure: AzureCredential{ClientID: clientIDVal},
-					Token: Token{
+					Token: TokenDetails{
 						Source: "invalid-source",
 					},
 				},

@@ -50,7 +50,7 @@ var ErrCredentialTypeRequired = errors.New("credential type is required")
 type CredentialDetails struct {
 	Type  CredentialType  `yaml:"type" json:"type"`
 	Azure AzureCredential `yaml:"azure" json:"azure"`
-	Token Token           `yaml:"token" json:"token"`
+	Token TokenDetails    `yaml:"token" json:"token"`
 }
 
 // AzureCredential represents Azure auth details for a credential.
@@ -70,8 +70,8 @@ const (
 	TokenSourceOAuth2 TokenSource = "oauth2"
 )
 
-// Token represents auth token retrieval details for a credential.
-type Token struct {
+// TokenDetails represents auth token retrieval details for a credential.
+type TokenDetails struct {
 	Source TokenSource   `yaml:"source" json:"source"`
 	OAuth2 *OAuth2Source `yaml:"oauth2,omitempty" json:"oauth2,omitempty"`
 	File   *FileSource   `yaml:"file,omitempty" json:"file,omitempty"`
@@ -169,7 +169,7 @@ func (credential *Credential) Validate() error {
 	return errors.Join(errs...)
 }
 
-func (token *Token) Validate() error {
+func (token *TokenDetails) Validate() error {
 	var errs []error
 	if token.Source == "" {
 		return errors.New("token source is required")

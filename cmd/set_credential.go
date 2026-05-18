@@ -95,7 +95,7 @@ func (c *setCredentialCmd) run(cmd *cobra.Command, args []string) error {
 				ClientSecret:          clientSecret,
 				ClientCertificatePath: certPath,
 			},
-			Token: config.Token{
+			Token: config.TokenDetails{
 				Source: config.TokenSourceFile,
 				File: &config.FileSource{
 					Path: fedTokenFile,
