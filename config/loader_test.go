@@ -56,10 +56,10 @@ func TestExpandPath(t *testing.T) {
 }
 
 func TestLoaderResolvePaths(t *testing.T) {
-	homeDir, err := os.UserConfigDir()
+	homeDir, err := os.UserHomeDir()
 	require.NoError(t, err)
 
-	defaultPath := filepath.Join(homeDir, configDir, configFile)
+	defaultPath := filepath.Join(homeDir, ".config", configDir, configFile)
 	pathA := filepath.Clean("/tmp/a.yaml")
 	pathB := filepath.Clean("/tmp/b.yaml")
 

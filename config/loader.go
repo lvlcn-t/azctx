@@ -82,12 +82,16 @@ func (l *Loader) Read(path string) (Config, error) {
 }
 
 func (l *Loader) DefaultPath() (string, error) {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return "", fmt.Errorf("determine user config directory: %w", err)
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+		return filepath.Join(xdg, configDir, configFile), nil
 	}
 
-	return filepath.Join(dir, configDir, configFile), nil
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("determine home directory: %w", err)
+	}
+
+	return filepath.Join(homeDir, ".config", configDir, configFile), nil
 }
 
 func (l *Loader) readConfig(path string) (Config, error) {

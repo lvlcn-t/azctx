@@ -8,6 +8,9 @@ subscription — running `azctx use` activates that combination.
 
 Default path: `~/.config/azctx/config.yaml`
 
+If `XDG_CONFIG_HOME` is set, azctx uses `$XDG_CONFIG_HOME/azctx/config.yaml`
+instead.
+
 Override with the `AZCTX` environment variable. On Unix systems this is
 a colon-separated list of paths; on Windows use semicolons. When
 multiple paths are given:
