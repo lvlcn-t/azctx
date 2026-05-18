@@ -24,7 +24,7 @@ func TestSetTenantCreate(t *testing.T) {
 	got := readConfigForTest(t, path)
 	tenant, found := got.TenantByName("new-tenant")
 	require.True(t, found)
-	assert.Equal(t, "tenant-99", tenant.ID)
+	assert.Equal(t, "tenant-99", tenant.Tenant.ID)
 }
 
 func TestSetTenantUpdate(t *testing.T) {
@@ -38,5 +38,5 @@ func TestSetTenantUpdate(t *testing.T) {
 	got := readConfigForTest(t, path)
 	tenant, found := got.TenantByName("corp")
 	require.True(t, found)
-	assert.Equal(t, "tenant-updated", tenant.ID)
+	assert.Equal(t, "tenant-updated", tenant.Tenant.ID)
 }

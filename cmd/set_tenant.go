@@ -65,7 +65,7 @@ func (c *setTenantCommand) run(cmd *cobra.Command, args []string) error {
 
 	path := store.PathForTenant(tenantName)
 	cfg := store.FileConfig(path)
-	nextTenant := config.Tenant{Name: tenantName, ID: tenantID}
+	nextTenant := config.Tenant{Name: tenantName, Tenant: config.TenantDetails{ID: tenantID}}
 	cfg.UpsertTenant(nextTenant)
 
 	if err = c.writer.Write(path, &cfg); err != nil {

@@ -3,72 +3,16 @@ package config
 import (
 	"errors"
 	"fmt"
-	"strings"
 )
-
-// CredentialType identifies the kind of Azure credential.
-type CredentialType string
-
-const (
-	// CredentialTypeServicePrincipal represents service principal auth.
-	CredentialTypeServicePrincipal CredentialType = "service-principal"
-	// CredentialTypeUser represents interactive user auth.
-	CredentialTypeUser CredentialType = "user"
-	// CredentialTypeManagedIdentity represents managed identity auth.
-	CredentialTypeManagedIdentity CredentialType = "managed-identity"
-	// CredentialTypeOIDC represents workload identity federation auth.
-	CredentialTypeOIDC CredentialType = "oidc"
-)
-
-// ErrCredentialTypeRequired indicates that a credential type was not provided.
-var ErrCredentialTypeRequired = errors.New("credential type is required")
 
 // Config is the root azctx configuration document.
 type Config struct {
+	APIVersion     string       `yaml:"apiVersion" json:"apiVersion"`
+	Kind           string       `yaml:"kind" json:"kind"`
 	Tenants        []Tenant     `yaml:"tenants" json:"tenants"`
 	Credentials    []Credential `yaml:"credentials" json:"credentials"`
 	Contexts       []Context    `yaml:"contexts" json:"contexts"`
 	CurrentContext string       `yaml:"current-context,omitempty" json:"current-context,omitempty"`
-}
-
-// Tenant represents a named Azure tenant definition.
-type Tenant struct {
-	Name string `yaml:"name" json:"name"`
-	ID   string `yaml:"id" json:"id"`
-}
-
-// Credential represents a named Azure credential definition.
-type Credential struct {
-	Name                  string         `yaml:"name" json:"name"`
-	Type                  CredentialType `yaml:"type" json:"type"`
-	ClientID              string         `yaml:"client-id,omitempty" json:"clientId,omitempty"`
-	ClientSecret          string         `yaml:"client-secret,omitempty" json:"clientSecret,omitempty"`
-	ClientCertificatePath string         `yaml:"client-certificate-path,omitempty" json:"clientCertificatePath,omitempty"`
-	FederatedTokenFile    string         `yaml:"federated-token-file,omitempty" json:"federatedTokenFile,omitempty"`
-}
-
-// Context represents a named azctx context entry.
-type Context struct {
-	Name         string `yaml:"name" json:"name"`
-	Tenant       string `yaml:"tenant" json:"tenant"`
-	Credential   string `yaml:"credential" json:"credential"`
-	Subscription string `yaml:"subscription,omitempty" json:"subscription,omitempty"`
-}
-
-// ParseCredentialType parses and validates a credential type string.
-func ParseCredentialType(raw string) (CredentialType, error) {
-	v := CredentialType(raw)
-	if v == "" {
-		return "", ErrCredentialTypeRequired
-	}
-
-	switch v {
-	case CredentialTypeServicePrincipal, CredentialTypeUser,
-		CredentialTypeManagedIdentity, CredentialTypeOIDC:
-		return v, nil
-	default:
-		return "", fmt.Errorf("unsupported credential type %q", raw)
-	}
 }
 
 // TenantByName returns a tenant by name.
@@ -201,88 +145,20 @@ func (cfg *Config) ValidateContextReferences(context Context) error {
 		return errors.New("context name is required")
 	}
 
-	if context.Tenant == "" {
+	if context.Context.Tenant == "" {
 		return errors.New("context tenant is required")
 	}
 
-	if context.Credential == "" {
+	if context.Context.Credential == "" {
 		return errors.New("context credential is required")
 	}
 
-	if _, found := cfg.TenantByName(context.Tenant); !found {
-		return fmt.Errorf("tenant %q does not exist", context.Tenant)
+	if _, found := cfg.TenantByName(context.Context.Tenant); !found {
+		return fmt.Errorf("tenant %q does not exist", context.Context.Tenant)
 	}
 
-	if _, found := cfg.CredentialByName(context.Credential); !found {
-		return fmt.Errorf("credential %q does not exist", context.Credential)
-	}
-
-	return nil
-}
-
-// Validate validates credential data for the selected credential type.
-func (credential *Credential) Validate() error {
-	if credential == nil {
-		return errors.New("credential is required")
-	}
-
-	if credential.Name == "" {
-		return errors.New("credential name is required")
-	}
-
-	if credential.Type == "" {
-		return ErrCredentialTypeRequired
-	}
-
-	if _, err := ParseCredentialType(string(credential.Type)); err != nil {
-		return err
-	}
-
-	switch credential.Type {
-	case CredentialTypeServicePrincipal:
-		return credential.validateServicePrincipal()
-	case CredentialTypeUser:
-		return nil
-	case CredentialTypeManagedIdentity:
-		return nil
-	case CredentialTypeOIDC:
-		if credential.ClientID == "" {
-			return errors.New("oidc credential requires client-id")
-		}
-
-		if credential.FederatedTokenFile == "" {
-			return errors.New("oidc credential requires federated-token-file")
-		}
-	default:
-		return fmt.Errorf("unsupported credential type %q", credential.Type)
-	}
-
-	return nil
-}
-
-// validateServicePrincipal validates service-principal specific fields.
-func (credential *Credential) validateServicePrincipal() error {
-	if credential.ClientID == "" {
-		return errors.New("service-principal credential requires client-id")
-	}
-
-	hasSecret := credential.ClientSecret != ""
-	hasCertificatePath := credential.ClientCertificatePath != ""
-
-	if !hasSecret && !hasCertificatePath {
-		return errors.New("service-principal credential requires client-secret or client-certificate-path")
-	}
-
-	if hasSecret && isKeyVaultRef(credential.ClientSecret) {
-		if err := validateKeyVaultURI(credential.ClientSecret); err != nil {
-			return fmt.Errorf("invalid client-secret Key Vault reference: %w", err)
-		}
-	}
-
-	if hasCertificatePath && isKeyVaultRef(credential.ClientCertificatePath) {
-		if err := validateKeyVaultURI(credential.ClientCertificatePath); err != nil {
-			return fmt.Errorf("invalid client-certificate-path Key Vault reference: %w", err)
-		}
+	if _, found := cfg.CredentialByName(context.Context.Credential); !found {
+		return fmt.Errorf("credential %q does not exist", context.Context.Credential)
 	}
 
 	return nil
@@ -337,38 +213,4 @@ func (cfg *Config) mergeContexts(contexts []Context) {
 		cfg.Contexts = append(cfg.Contexts, context)
 		known[context.Name] = struct{}{}
 	}
-}
-
-const keyVaultScheme = "keyvault://"
-
-// maxKeyVaultURIParts is the max number of path segments in a keyvault URI.
-const maxKeyVaultURIParts = 4
-
-// isKeyVaultRef reports whether a value is a keyvault:// URI reference.
-func isKeyVaultRef(value string) bool {
-	return strings.HasPrefix(value, keyVaultScheme)
-}
-
-// validateKeyVaultURI validates the structure of a keyvault:// URI without
-// resolving it.
-func validateKeyVaultURI(uri string) error {
-	path := strings.TrimPrefix(uri, keyVaultScheme)
-	parts := strings.Split(path, "/")
-
-	if len(parts) < 3 || len(parts) > maxKeyVaultURIParts {
-		return fmt.Errorf(
-			"expected keyvault://<vault>/<secrets|certificates>/<name>[/<version>], got %q",
-			uri,
-		)
-	}
-
-	objectType := parts[1]
-	if objectType != "secrets" && objectType != "certificates" {
-		return fmt.Errorf(
-			"object type must be \"secrets\" or \"certificates\", got %q",
-			objectType,
-		)
-	}
-
-	return nil
 }

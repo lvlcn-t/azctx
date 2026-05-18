@@ -26,18 +26,18 @@ func buildContextView(cfg *config.Config, context config.Context, currentContext
 
 	view := contextView{
 		Name:         context.Name,
-		Tenant:       context.Tenant,
-		Credential:   context.Credential,
-		Subscription: context.Subscription,
+		Tenant:       context.Context.Tenant,
+		Credential:   context.Context.Credential,
+		Subscription: context.Context.Subscription,
 		Current:      context.Name == currentContext,
 	}
 
-	if tenant, found := cfg.TenantByName(context.Tenant); found {
-		view.TenantID = tenant.ID
+	if tenant, found := cfg.TenantByName(context.Context.Tenant); found {
+		view.TenantID = tenant.Tenant.ID
 	}
 
-	if credential, found := cfg.CredentialByName(context.Credential); found {
-		view.CredentialType = credential.Type
+	if credential, found := cfg.CredentialByName(context.Context.Credential); found {
+		view.CredentialType = credential.Credential.Type
 	}
 
 	return view
