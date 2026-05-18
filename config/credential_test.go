@@ -15,9 +15,9 @@ func TestParseCredentialType(t *testing.T) {
 		wantErr string
 	}{
 		{name: "service principal", raw: "service-principal", want: CredentialTypeServicePrincipal},
-		{name: "user", raw: "user", want: CredentialTypeUser}, //nolint:goconst // test input
+		{name: "user", raw: "user", want: CredentialTypeUser},
 		{name: "managed identity", raw: "managed-identity", want: CredentialTypeManagedIdentity},
-		{name: "workload identity", raw: "workload-identity", want: CredentialTypeWorkloadIdentity}, //nolint:goconst // test input
+		{name: "workload identity", raw: "workload-identity", want: CredentialTypeWorkloadIdentity},
 		{name: "empty", raw: "", wantErr: "credential type is required"},
 		{name: "unsupported", raw: "something-else", wantErr: "unsupported credential type"},
 	}

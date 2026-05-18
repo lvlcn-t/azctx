@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -88,18 +89,23 @@ func NewProvider(ctx context.Context, cfg *config.OAuth2Source) (*Provider, erro
 // the id_token from the token response. The id_token is a signed JWT
 // suitable for use as a federated credential with Azure workload
 // identity login (az login --federated-token).
-func (p *Provider) AcquireToken(ctx context.Context) (string, error) {
+func (p *Provider) AcquireToken(ctx context.Context) (idToken string, err error) {
 	state, err := randomState()
 	if err != nil {
 		return "", fmt.Errorf("generate OAuth2 state: %w", err)
 	}
 
-	p.startServer()
-	defer p.shutdown(ctx)
+	p.callback.BaseContext = func(net.Listener) context.Context { return ctx }
+	serverErr := p.startServer()
+	defer func() {
+		if sErr := p.shutdown(ctx); sErr != nil {
+			err = errors.Join(err, fmt.Errorf("shutdown callback server: %w", sErr))
+		}
+	}()
 
 	p.promptAuthorization(ctx, state)
 
-	code, err := p.awaitCallback(ctx, state)
+	code, err := p.awaitCallback(ctx, state, serverErr)
 	if err != nil {
 		return "", err
 	}
@@ -107,20 +113,26 @@ func (p *Provider) AcquireToken(ctx context.Context) (string, error) {
 	return p.exchangeForIDToken(ctx, code)
 }
 
-// startServer starts the HTTP callback server in a background goroutine.
-func (p *Provider) startServer() {
+// startServer starts the HTTP callback server in a background goroutine
+// and returns a channel that receives the server's terminal error (nil
+// on graceful shutdown).
+func (p *Provider) startServer() <-chan error {
+	errCh := make(chan error, 1)
 	go func() {
-		if err := p.callback.Serve(p.listener); err != nil && err != http.ErrServerClosed {
-			fmt.Fprintf(os.Stderr, "OAuth2 callback server error: %v\n", err)
+		if err := p.callback.Serve(p.listener); errors.Is(err, http.ErrServerClosed) {
+			errCh <- nil
+		} else {
+			errCh <- err
 		}
 	}()
+	return errCh
 }
 
 // shutdown gracefully stops the callback server.
-func (p *Provider) shutdown(ctx context.Context) {
+func (p *Provider) shutdown(ctx context.Context) error {
 	c, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownTimeout)
 	defer cancel()
-	_ = p.callback.Shutdown(c)
+	return p.callback.Shutdown(c)
 }
 
 // promptAuthorization builds the authorization URL, attempts to open it
@@ -144,9 +156,9 @@ func (p *Provider) promptAuthorization(ctx context.Context, state string) {
 }
 
 // awaitCallback registers the callback handler and blocks until an
-// authorization code is received, an error occurs, or the context is
-// canceled.
-func (p *Provider) awaitCallback(ctx context.Context, state string) (string, error) {
+// authorization code is received, an error occurs, the server stops, or
+// the context is canceled.
+func (p *Provider) awaitCallback(ctx context.Context, state string, serverErr <-chan error) (string, error) {
 	redirectURL, err := url.Parse(p.cfg.RedirectURL)
 	if err != nil {
 		return "", fmt.Errorf("parse configured redirect URL: %w", err)
@@ -155,7 +167,6 @@ func (p *Provider) awaitCallback(ctx context.Context, state string) (string, err
 	codeCh := make(chan string, 1)
 	errCh := make(chan error, 1)
 
-	p.callback.BaseContext = func(net.Listener) context.Context { return ctx }
 	p.mux.HandleFunc(redirectURL.Path, func(w http.ResponseWriter, r *http.Request) {
 		query := r.URL.Query()
 
@@ -189,6 +200,8 @@ func (p *Provider) awaitCallback(ctx context.Context, state string) (string, err
 		return code, nil
 	case err := <-errCh:
 		return "", err
+	case err := <-serverErr:
+		return "", fmt.Errorf("callback server stopped unexpectedly: %w", err)
 	case <-ctx.Done():
 		return "", fmt.Errorf("authorization canceled: %w", ctx.Err())
 	}

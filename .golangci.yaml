@@ -109,6 +109,8 @@ linters:
       - linters:
           - mnd
           - revive
+          - goconst
+          - gosec
         path: _test\.go
       - path: pkg/golinters/errcheck.go
         text: "SA1019: errCfg.Exclude is deprecated: use ExcludeFunctions instead"
