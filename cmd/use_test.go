@@ -29,6 +29,9 @@ func TestUseHappyPath(t *testing.T) {
 			assert.Equal(t, "sub-prod", subscriptionID)
 			return mock
 		},
+		AllowNoSubscriptionsFunc: func(allow bool) az.CLI {
+			return mock
+		},
 		LoginFunc: func(ctx context.Context) error {
 			return nil
 		},
@@ -68,6 +71,9 @@ func TestUseContextNotFound(t *testing.T) {
 			return mock
 		},
 		WithSubscriptionFunc: func(subscriptionID string) az.CLI {
+			return mock
+		},
+		AllowNoSubscriptionsFunc: func(allow bool) az.CLI {
 			return mock
 		},
 		LoginFunc: func(ctx context.Context) error {

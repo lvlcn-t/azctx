@@ -72,6 +72,7 @@ func (c *useCommand) run(cmd *cobra.Command, args []string) error {
 	err = azcli.WithTenant(tenant.Tenant.ID).
 		WithCredential(&credential).
 		WithSubscription(ctx.Context.Subscription).
+		AllowNoSubscriptions(ctx.Context.AllowNoSubscriptions).
 		Login(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("az login: %w", err)

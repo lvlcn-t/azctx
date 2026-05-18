@@ -19,6 +19,9 @@ var _ CLI = &CLIMock{}
 //
 //		// make and configure a mocked CLI
 //		mockedCLI := &CLIMock{
+//			AllowNoSubscriptionsFunc: func(allow bool) CLI {
+//				panic("mock out the AllowNoSubscriptions method")
+//			},
 //			LoginFunc: func(ctx context.Context) error {
 //				panic("mock out the Login method")
 //			},
@@ -38,6 +41,9 @@ var _ CLI = &CLIMock{}
 //
 //	}
 type CLIMock struct {
+	// AllowNoSubscriptionsFunc mocks the AllowNoSubscriptions method.
+	AllowNoSubscriptionsFunc func(allow bool) CLI
+
 	// LoginFunc mocks the Login method.
 	LoginFunc func(ctx context.Context) error
 
@@ -52,6 +58,11 @@ type CLIMock struct {
 
 	// calls tracks calls to the methods.
 	calls struct {
+		// AllowNoSubscriptions holds details about calls to the AllowNoSubscriptions method.
+		AllowNoSubscriptions []struct {
+			// Allow is the allow argument value.
+			Allow bool
+		}
 		// Login holds details about calls to the Login method.
 		Login []struct {
 			// Ctx is the ctx argument value.
@@ -73,10 +84,43 @@ type CLIMock struct {
 			TenantID string
 		}
 	}
-	lockLogin            sync.RWMutex
-	lockWithCredential   sync.RWMutex
-	lockWithSubscription sync.RWMutex
-	lockWithTenant       sync.RWMutex
+	lockAllowNoSubscriptions sync.RWMutex
+	lockLogin                sync.RWMutex
+	lockWithCredential       sync.RWMutex
+	lockWithSubscription     sync.RWMutex
+	lockWithTenant           sync.RWMutex
+}
+
+// AllowNoSubscriptions calls AllowNoSubscriptionsFunc.
+func (mock *CLIMock) AllowNoSubscriptions(allow bool) CLI {
+	if mock.AllowNoSubscriptionsFunc == nil {
+		panic("CLIMock.AllowNoSubscriptionsFunc: method is nil but CLI.AllowNoSubscriptions was just called")
+	}
+	callInfo := struct {
+		Allow bool
+	}{
+		Allow: allow,
+	}
+	mock.lockAllowNoSubscriptions.Lock()
+	mock.calls.AllowNoSubscriptions = append(mock.calls.AllowNoSubscriptions, callInfo)
+	mock.lockAllowNoSubscriptions.Unlock()
+	return mock.AllowNoSubscriptionsFunc(allow)
+}
+
+// AllowNoSubscriptionsCalls gets all the calls that were made to AllowNoSubscriptions.
+// Check the length with:
+//
+//	len(mockedCLI.AllowNoSubscriptionsCalls())
+func (mock *CLIMock) AllowNoSubscriptionsCalls() []struct {
+	Allow bool
+} {
+	var calls []struct {
+		Allow bool
+	}
+	mock.lockAllowNoSubscriptions.RLock()
+	calls = mock.calls.AllowNoSubscriptions
+	mock.lockAllowNoSubscriptions.RUnlock()
+	return calls
 }
 
 // Login calls LoginFunc.
