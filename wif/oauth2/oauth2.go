@@ -40,7 +40,7 @@ type Provider struct {
 // local callback listener for the authorization code flow. PKCE (S256)
 // is enabled by default unless the config explicitly sets pkce to "disabled".
 func NewProvider(ctx context.Context, cfg *config.OAuth2Source) (*Provider, error) {
-	provider, err := oidc.NewProvider(ctx, cfg.Issuer)
+	p, err := oidc.NewProvider(ctx, cfg.Issuer)
 	if err != nil {
 		return nil, fmt.Errorf("initialize OIDC provider: %w", err)
 	}
@@ -67,7 +67,7 @@ func NewProvider(ctx context.Context, cfg *config.OAuth2Source) (*Provider, erro
 
 	mux := http.NewServeMux()
 	return &Provider{
-		provider: provider,
+		provider: p,
 		listener: ln,
 		mux:      mux,
 		callback: http.Server{
@@ -77,7 +77,7 @@ func NewProvider(ctx context.Context, cfg *config.OAuth2Source) (*Provider, erro
 		},
 		cfg: oauth2.Config{
 			ClientID:    cfg.ClientID,
-			Endpoint:    provider.Endpoint(),
+			Endpoint:    p.Endpoint(),
 			Scopes:      cfg.Scopes,
 			RedirectURL: u.String(),
 		},
