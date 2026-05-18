@@ -57,6 +57,11 @@ func NewProvider(ctx context.Context, cfg *config.OAuth2Source, cacheDir string)
 		}
 	}
 
+	// Default to an OS-assigned port on the loopback interface. RFC 8252 §7.3
+	// (https://datatracker.ietf.org/doc/html/rfc8252#section-7.3) specifies that
+	// authorization servers MUST allow any port for loopback redirect URIs, making
+	// this safe for compliant IdPs such as Entra ID. For IdPs that require an exact
+	// redirect URI match, users can set redirect-uri in their config.
 	redirectURI := cmp.Or(cfg.RedirectURI, "http://127.0.0.1:0/callback")
 	u, err := url.Parse(redirectURI)
 	if err != nil {

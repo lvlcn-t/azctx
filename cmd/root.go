@@ -10,6 +10,7 @@ var AzCtx = &cobra.Command{
 	Example:           Example,
 	Version:           Version,
 	DisableAutoGenTag: true,
+	SilenceUsage:      true,
 }
 
 func init() { //nolint:gochecknoinits // This is the standard way to set up Cobra commands

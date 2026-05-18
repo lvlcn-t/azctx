@@ -3,7 +3,6 @@ package main
 import (
 	"cmp"
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -26,7 +25,7 @@ func run() int {
 	cmd.AzCtx.Version = cmp.Or(version, cmd.Version)
 
 	if err := cmd.AzCtx.ExecuteContext(ctx); err != nil {
-		fmt.Fprintln(cmd.AzCtx.ErrOrStderr(), err)
+		// Error is already printed by Cobra (prefixed with "Error: ").
 		return 1
 	}
 
