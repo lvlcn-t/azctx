@@ -6,11 +6,13 @@ import (
 
 	"github.com/lvlcn-t/azctx/az"
 	"github.com/lvlcn-t/azctx/config"
+	"github.com/lvlcn-t/azctx/wif"
 	"github.com/spf13/cobra"
 )
 
 type useCommand struct {
 	az     func(ctx context.Context) (az.CLI, error)
+	wif    func(ctx context.Context, cfg config.TokenDetails) (wif.Provider, error)
 	loader config.Loader
 	writer config.Writer
 }
@@ -21,6 +23,7 @@ func newUseCmd() *cobra.Command {
 		loader: config.NewLoader(),
 		writer: config.NewWriter(),
 		az:     az.NewClient,
+		wif:    wif.NewProvider,
 	}
 
 	useCmd := &cobra.Command{ //nolint:exhaustruct // Cobra command definition
@@ -69,10 +72,25 @@ func (c *useCommand) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("tenant %q is missing id", tenant.Name)
 	}
 
+	var token string
+	if credential.Credential.Type == config.CredentialTypeWorkloadIdentity {
+		var provider wif.Provider
+		provider, err = c.wif(cmd.Context(), credential.Credential.Token)
+		if err != nil {
+			return fmt.Errorf("create token provider: %w", err)
+		}
+
+		token, err = provider.AcquireToken(cmd.Context())
+		if err != nil {
+			return fmt.Errorf("acquire federated token: %w", err)
+		}
+	}
+
 	err = azcli.WithTenant(tenant.Tenant.ID).
 		WithCredential(&credential).
 		WithSubscription(ctx.Context.Subscription).
 		AllowNoSubscriptions(ctx.Context.AllowNoSubscriptions).
+		WithFederatedToken(token).
 		Login(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("az login: %w", err)

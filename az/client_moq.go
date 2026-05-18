@@ -28,6 +28,9 @@ var _ CLI = &CLIMock{}
 //			WithCredentialFunc: func(credential *config.Credential) CLI {
 //				panic("mock out the WithCredential method")
 //			},
+//			WithFederatedTokenFunc: func(token string) CLI {
+//				panic("mock out the WithFederatedToken method")
+//			},
 //			WithSubscriptionFunc: func(subscriptionID string) CLI {
 //				panic("mock out the WithSubscription method")
 //			},
@@ -49,6 +52,9 @@ type CLIMock struct {
 
 	// WithCredentialFunc mocks the WithCredential method.
 	WithCredentialFunc func(credential *config.Credential) CLI
+
+	// WithFederatedTokenFunc mocks the WithFederatedToken method.
+	WithFederatedTokenFunc func(token string) CLI
 
 	// WithSubscriptionFunc mocks the WithSubscription method.
 	WithSubscriptionFunc func(subscriptionID string) CLI
@@ -73,6 +79,11 @@ type CLIMock struct {
 			// Credential is the credential argument value.
 			Credential *config.Credential
 		}
+		// WithFederatedToken holds details about calls to the WithFederatedToken method.
+		WithFederatedToken []struct {
+			// Token is the token argument value.
+			Token string
+		}
 		// WithSubscription holds details about calls to the WithSubscription method.
 		WithSubscription []struct {
 			// SubscriptionID is the subscriptionID argument value.
@@ -87,6 +98,7 @@ type CLIMock struct {
 	lockAllowNoSubscriptions sync.RWMutex
 	lockLogin                sync.RWMutex
 	lockWithCredential       sync.RWMutex
+	lockWithFederatedToken   sync.RWMutex
 	lockWithSubscription     sync.RWMutex
 	lockWithTenant           sync.RWMutex
 }
@@ -184,6 +196,38 @@ func (mock *CLIMock) WithCredentialCalls() []struct {
 	mock.lockWithCredential.RLock()
 	calls = mock.calls.WithCredential
 	mock.lockWithCredential.RUnlock()
+	return calls
+}
+
+// WithFederatedToken calls WithFederatedTokenFunc.
+func (mock *CLIMock) WithFederatedToken(token string) CLI {
+	if mock.WithFederatedTokenFunc == nil {
+		panic("CLIMock.WithFederatedTokenFunc: method is nil but CLI.WithFederatedToken was just called")
+	}
+	callInfo := struct {
+		Token string
+	}{
+		Token: token,
+	}
+	mock.lockWithFederatedToken.Lock()
+	mock.calls.WithFederatedToken = append(mock.calls.WithFederatedToken, callInfo)
+	mock.lockWithFederatedToken.Unlock()
+	return mock.WithFederatedTokenFunc(token)
+}
+
+// WithFederatedTokenCalls gets all the calls that were made to WithFederatedToken.
+// Check the length with:
+//
+//	len(mockedCLI.WithFederatedTokenCalls())
+func (mock *CLIMock) WithFederatedTokenCalls() []struct {
+	Token string
+} {
+	var calls []struct {
+		Token string
+	}
+	mock.lockWithFederatedToken.RLock()
+	calls = mock.calls.WithFederatedToken
+	mock.lockWithFederatedToken.RUnlock()
 	return calls
 }
 
