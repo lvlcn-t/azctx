@@ -125,7 +125,7 @@ func TestUseOAuth2TokenAcquisition(t *testing.T) {
 	cfg := baseConfig()
 	cfg.Credentials = append(cfg.Credentials, config.Credential{
 		Name: "wi",
-		Credential: config.CredentialDetails{
+		Details: config.CredentialDetails{
 			Type: config.CredentialTypeWorkloadIdentity,
 			Azure: config.AzureCredential{
 				ClientID: "wi-client",
@@ -142,7 +142,7 @@ func TestUseOAuth2TokenAcquisition(t *testing.T) {
 	})
 	cfg.Contexts = append(cfg.Contexts, config.Context{
 		Name: "wi-ctx",
-		Context: config.ContextDetails{
+		Details: config.ContextDetails{
 			Tenant:       "corp",
 			Credential:   "wi",
 			Subscription: "sub-wi",
@@ -169,11 +169,11 @@ func TestUseOAuth2TokenAcquisition(t *testing.T) {
 		loader: config.NewLoader(),
 		writer: config.NewWriter(),
 		az:     func(context.Context) (az.CLI, error) { return mock, nil },
-		wif: func(_ context.Context, cfg config.TokenDetails) (wif.Provider, error) {
+		wif: func(_ context.Context, cfg config.TokenDetails, _ string) (wif.Provider, error) {
 			assert.Equal(t, config.TokenSourceOAuth2, cfg.Source)
 			return &wif.ProviderMock{
-				AcquireTokenFunc: func(context.Context) (string, error) {
-					return fakeToken, nil
+				AcquireTokenFunc: func(context.Context, ...wif.AcquireOption) (string, bool, error) {
+					return fakeToken, false, nil
 				},
 			}, nil
 		},

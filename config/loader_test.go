@@ -13,15 +13,15 @@ import (
 )
 
 var (
-	tenantCorp = Tenant{Name: "corp", Tenant: TenantDetails{ID: "tenant-1"}}
-	tenantPlat = Tenant{Name: "platform", Tenant: TenantDetails{ID: "tenant-2"}}
+	tenantCorp = Tenant{Name: "corp", Details: TenantDetails{ID: "tenant-1"}}
+	tenantPlat = Tenant{Name: "platform", Details: TenantDetails{ID: "tenant-2"}}
 
-	credUser = Credential{Name: "cred-a", Credential: CredentialDetails{Type: CredentialTypeUser}}
-	credMI   = Credential{Name: "cred-b", Credential: CredentialDetails{Type: CredentialTypeManagedIdentity}}
-	credOIDC = Credential{Name: "cred-c", Credential: CredentialDetails{Type: CredentialTypeWorkloadIdentity}}
+	credUser = Credential{Name: "cred-a", Details: CredentialDetails{Type: CredentialTypeUser}}
+	credMI   = Credential{Name: "cred-b", Details: CredentialDetails{Type: CredentialTypeManagedIdentity}}
+	credOIDC = Credential{Name: "cred-c", Details: CredentialDetails{Type: CredentialTypeWorkloadIdentity}}
 
-	devContext  = Context{Name: "dev", Context: ContextDetails{Tenant: tenantCorp.Name, Credential: credUser.Name}}
-	prodContext = Context{Name: "prod", Context: ContextDetails{Tenant: tenantPlat.Name, Credential: credMI.Name, Subscription: "sub-prod"}}
+	devContext  = Context{Name: "dev", Details: ContextDetails{Tenant: tenantCorp.Name, Credential: credUser.Name}}
+	prodContext = Context{Name: "prod", Details: ContextDetails{Tenant: tenantPlat.Name, Credential: credMI.Name, Subscription: "sub-prod"}}
 )
 
 func TestExpandPath(t *testing.T) {
@@ -107,8 +107,8 @@ func TestLoaderLoadMergesWithFirstWins(t *testing.T) {
 	}
 	writeConfigYAML(t, fs, pathOne, &cfgOne)
 
-	cfgTwoTenantCorp := Tenant{Name: "corp", Tenant: TenantDetails{ID: "tenant-2"}}
-	cfgTwoTenantPlat := Tenant{Name: "platform", Tenant: TenantDetails{ID: "tenant-3"}}
+	cfgTwoTenantCorp := Tenant{Name: "corp", Details: TenantDetails{ID: "tenant-2"}}
+	cfgTwoTenantPlat := Tenant{Name: "platform", Details: TenantDetails{ID: "tenant-3"}}
 
 	cfgTwo := Config{
 		CurrentContext: prodContext.Name,
@@ -127,14 +127,14 @@ func TestLoaderLoadMergesWithFirstWins(t *testing.T) {
 
 	tenant, ok := store.Config.TenantByName(tenantCorp.Name)
 	require.True(t, ok)
-	assert.Equal(t, "tenant-1", tenant.Tenant.ID)
+	assert.Equal(t, "tenant-1", tenant.Details.ID)
 
 	_, ok = store.Config.TenantByName(tenantPlat.Name)
 	assert.True(t, ok)
 
 	contextValue, ok := store.Config.ContextByName(devContext.Name)
 	require.True(t, ok)
-	assert.Empty(t, contextValue.Context.Subscription)
+	assert.Empty(t, contextValue.Details.Subscription)
 
 	assert.Equal(t, pathOne, store.PathForCurrentContext())
 	assert.Equal(t, pathOne, store.PathForTenant(tenantCorp.Name))
@@ -200,7 +200,7 @@ func TestWriterWriteAndLoaderReadRoundTrip(t *testing.T) {
 		CurrentContext: devContext.Name,
 		Tenants:        []Tenant{tenantCorp},
 		Credentials:    []Credential{credMI},
-		Contexts:       []Context{{Name: devContext.Name, Context: ContextDetails{Tenant: tenantCorp.Name, Credential: credMI.Name, Subscription: "sub-1"}}},
+		Contexts:       []Context{{Name: devContext.Name, Details: ContextDetails{Tenant: tenantCorp.Name, Credential: credMI.Name, Subscription: "sub-1"}}},
 	}
 
 	err := writer.Write(path, &input)

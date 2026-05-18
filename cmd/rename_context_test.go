@@ -21,7 +21,7 @@ func TestRenameContextHappyPath(t *testing.T) {
 
 	renamed, newFound := got.ContextByName("local")
 	require.True(t, newFound)
-	assert.Equal(t, "corp", renamed.Context.Tenant)
+	assert.Equal(t, "corp", renamed.Details.Tenant)
 	assert.Equal(t, "local", got.CurrentContext)
 }
 

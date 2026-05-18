@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/lvlcn-t/azctx/config"
+	"github.com/lvlcn-t/azctx/wif"
 	"github.com/spf13/afero"
 )
 
@@ -28,16 +29,18 @@ func NewProvider(cfg *config.FileSource) (*Provider, error) {
 }
 
 // AcquireToken reads and returns the token from the configured file path.
-func (p *Provider) AcquireToken(_ context.Context) (string, error) {
+// Options are accepted for interface compliance but ignored — file tokens
+// are always read fresh.
+func (p *Provider) AcquireToken(_ context.Context, _ ...wif.AcquireOption) (token string, cached bool, err error) {
 	data, err := afero.ReadFile(p.fsys, p.path)
 	if err != nil {
-		return "", fmt.Errorf("read federated token file %q: %w", p.path, err)
+		return "", false, fmt.Errorf("read federated token file %q: %w", p.path, err)
 	}
 
-	token := strings.TrimSpace(string(data))
+	token = strings.TrimSpace(string(data))
 	if token == "" {
-		return "", fmt.Errorf("federated token file %q is empty", p.path)
+		return "", false, fmt.Errorf("federated token file %q is empty", p.path)
 	}
 
-	return token, nil
+	return token, false, nil
 }

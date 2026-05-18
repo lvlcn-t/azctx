@@ -88,7 +88,7 @@ func (c *setCredentialCmd) run(cmd *cobra.Command, args []string) error {
 
 	nextCredential := config.Credential{
 		Name: credName,
-		Credential: config.CredentialDetails{
+		Details: config.CredentialDetails{
 			Type: credType,
 			Azure: config.AzureCredential{
 				ClientID:              clientID,

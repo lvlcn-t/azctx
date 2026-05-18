@@ -2,17 +2,20 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"path/filepath"
 
 	"github.com/lvlcn-t/azctx/az"
 	"github.com/lvlcn-t/azctx/config"
 	"github.com/lvlcn-t/azctx/wif"
+	"github.com/lvlcn-t/azctx/wif/factory"
 	"github.com/spf13/cobra"
 )
 
 type useCommand struct {
 	az     func(ctx context.Context) (az.CLI, error)
-	wif    func(ctx context.Context, cfg config.TokenDetails) (wif.Provider, error)
+	wif    func(ctx context.Context, cfg config.TokenDetails, cacheDir string) (wif.Provider, error)
 	loader config.Loader
 	writer config.Writer
 }
@@ -23,7 +26,7 @@ func newUseCmd() *cobra.Command {
 		loader: config.NewLoader(),
 		writer: config.NewWriter(),
 		az:     az.NewClient,
-		wif:    wif.NewProvider,
+		wif:    factory.NewProvider,
 	}
 
 	useCmd := &cobra.Command{ //nolint:exhaustruct // Cobra command definition
@@ -52,58 +55,61 @@ func (c *useCommand) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ctxName := args[0]
-	ctx, found := store.Config.ContextByName(ctxName)
-	if !found {
-		return fmt.Errorf("context %q not found", ctxName)
-	}
-
-	tenant, found := store.Config.TenantByName(ctx.Context.Tenant)
-	if !found {
-		return fmt.Errorf("tenant %q not found for context %q", ctx.Context.Tenant, ctx.Name)
-	}
-
-	credential, found := store.Config.CredentialByName(ctx.Context.Credential)
-	if !found {
-		return fmt.Errorf("credential %q not found for context %q", ctx.Context.Credential, ctx.Name)
-	}
-
-	if tenant.Tenant.ID == "" {
-		return fmt.Errorf("tenant %q is missing id", tenant.Name)
+	resolved, err := store.Resolve(args[0])
+	if err != nil {
+		return err
 	}
 
 	var token string
-	if credential.Credential.Type == config.CredentialTypeWorkloadIdentity {
-		var provider wif.Provider
-		provider, err = c.wif(cmd.Context(), credential.Credential.Token)
+	var cached bool
+	var provider wif.Provider
+	if resolved.Credential.Details.Type == config.CredentialTypeWorkloadIdentity {
+		cacheDir := filepath.Dir(store.PathForCurrentContext())
+		provider, err = c.wif(cmd.Context(), resolved.Credential.Details.Token, cacheDir)
 		if err != nil {
 			return fmt.Errorf("create token provider: %w", err)
 		}
 
-		token, err = provider.AcquireToken(cmd.Context())
+		token, cached, err = provider.AcquireToken(cmd.Context())
 		if err != nil {
 			return fmt.Errorf("acquire federated token: %w", err)
 		}
 	}
 
-	err = azcli.WithTenant(tenant.Tenant.ID).
-		WithCredential(&credential).
-		WithSubscription(ctx.Context.Subscription).
-		AllowNoSubscriptions(ctx.Context.AllowNoSubscriptions).
+	loginErr := azcli.WithTenant(resolved.Tenant.Details.ID).
+		WithCredential(&resolved.Credential).
+		WithSubscription(resolved.Subscription).
+		AllowNoSubscriptions(resolved.AllowNoSubscriptions).
 		WithFederatedToken(token).
 		Login(cmd.Context())
-	if err != nil {
-		return fmt.Errorf("az login: %w", err)
+
+	// Retry once with a fresh token if login failed due to az login and we used a cached token.
+	if errors.Is(loginErr, az.ErrLogin) && cached {
+		token, _, err = provider.AcquireToken(cmd.Context(), wif.WithForceRefresh())
+		if err != nil {
+			return fmt.Errorf("az login: %w (refresh also failed: %w)", loginErr, err)
+		}
+
+		loginErr = azcli.WithTenant(resolved.Tenant.Details.ID).
+			WithCredential(&resolved.Credential).
+			WithSubscription(resolved.Subscription).
+			AllowNoSubscriptions(resolved.AllowNoSubscriptions).
+			WithFederatedToken(token).
+			Login(cmd.Context())
+	}
+
+	if loginErr != nil {
+		return fmt.Errorf("az login: %w", loginErr)
 	}
 
 	path := store.PathForCurrentContext()
 	cfg := store.FileConfig(path)
-	cfg.CurrentContext = ctx.Name
+	cfg.CurrentContext = resolved.Name
 
 	if err = c.writer.Write(path, &cfg); err != nil {
 		return err
 	}
 
-	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Switched to context %q.\n", ctx.Name)
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Switched to context %q.\n", resolved.Name)
 	return err
 }

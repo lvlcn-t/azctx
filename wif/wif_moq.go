@@ -18,7 +18,7 @@ var _ Provider = &ProviderMock{}
 //
 //		// make and configure a mocked Provider
 //		mockedProvider := &ProviderMock{
-//			AcquireTokenFunc: func(ctx context.Context) (string, error) {
+//			AcquireTokenFunc: func(ctx context.Context, opts ...AcquireOption) (string, bool, error) {
 //				panic("mock out the AcquireToken method")
 //			},
 //		}
@@ -29,7 +29,7 @@ var _ Provider = &ProviderMock{}
 //	}
 type ProviderMock struct {
 	// AcquireTokenFunc mocks the AcquireToken method.
-	AcquireTokenFunc func(ctx context.Context) (string, error)
+	AcquireTokenFunc func(ctx context.Context, opts ...AcquireOption) (string, bool, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -37,25 +37,29 @@ type ProviderMock struct {
 		AcquireToken []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
+			// Opts is the opts argument value.
+			Opts []AcquireOption
 		}
 	}
 	lockAcquireToken sync.RWMutex
 }
 
 // AcquireToken calls AcquireTokenFunc.
-func (mock *ProviderMock) AcquireToken(ctx context.Context) (string, error) {
+func (mock *ProviderMock) AcquireToken(ctx context.Context, opts ...AcquireOption) (string, bool, error) {
 	if mock.AcquireTokenFunc == nil {
 		panic("ProviderMock.AcquireTokenFunc: method is nil but Provider.AcquireToken was just called")
 	}
 	callInfo := struct {
-		Ctx context.Context
+		Ctx  context.Context
+		Opts []AcquireOption
 	}{
-		Ctx: ctx,
+		Ctx:  ctx,
+		Opts: opts,
 	}
 	mock.lockAcquireToken.Lock()
 	mock.calls.AcquireToken = append(mock.calls.AcquireToken, callInfo)
 	mock.lockAcquireToken.Unlock()
-	return mock.AcquireTokenFunc(ctx)
+	return mock.AcquireTokenFunc(ctx, opts...)
 }
 
 // AcquireTokenCalls gets all the calls that were made to AcquireToken.
@@ -63,10 +67,12 @@ func (mock *ProviderMock) AcquireToken(ctx context.Context) (string, error) {
 //
 //	len(mockedProvider.AcquireTokenCalls())
 func (mock *ProviderMock) AcquireTokenCalls() []struct {
-	Ctx context.Context
+	Ctx  context.Context
+	Opts []AcquireOption
 } {
 	var calls []struct {
-		Ctx context.Context
+		Ctx  context.Context
+		Opts []AcquireOption
 	}
 	mock.lockAcquireToken.RLock()
 	calls = mock.calls.AcquireToken

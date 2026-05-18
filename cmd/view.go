@@ -89,11 +89,11 @@ func viewRows(cfg *config.Config) [][]string {
 	rows = append(rows, []string{"meta", "current-context", emptyIfUnset(cfg.CurrentContext)})
 
 	for _, tenant := range cfg.Tenants {
-		rows = append(rows, []string{"tenant", tenant.Name, tenant.Tenant.ID})
+		rows = append(rows, []string{"tenant", tenant.Name, tenant.Details.ID})
 	}
 
 	for _, credential := range cfg.Credentials {
-		rows = append(rows, []string{"credential", credential.Name, string(credential.Credential.Type)})
+		rows = append(rows, []string{"credential", credential.Name, string(credential.Details.Type)})
 	}
 
 	for _, context := range cfg.Contexts {
@@ -102,9 +102,9 @@ func viewRows(cfg *config.Config) [][]string {
 			context.Name,
 			fmt.Sprintf(
 				"tenant=%s credential=%s subscription=%s",
-				context.Context.Tenant,
-				context.Context.Credential,
-				emptyIfUnset(context.Context.Subscription),
+				context.Details.Tenant,
+				context.Details.Credential,
+				emptyIfUnset(context.Details.Subscription),
 			),
 		})
 	}

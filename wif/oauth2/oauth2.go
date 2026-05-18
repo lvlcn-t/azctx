@@ -16,6 +16,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/lvlcn-t/azctx/config"
+	"github.com/lvlcn-t/azctx/wif"
 	"golang.org/x/oauth2"
 )
 
@@ -34,12 +35,15 @@ type Provider struct {
 	mux          *http.ServeMux
 	provider     *oidc.Provider
 	codeVerifier string
+	cache        *cache
+	cacheKey     string
 }
 
 // NewProvider initializes an OIDC provider via discovery and prepares a
 // local callback listener for the authorization code flow. PKCE (S256)
 // is enabled by default unless the config explicitly sets pkce to "disabled".
-func NewProvider(ctx context.Context, cfg *config.OAuth2Source) (*Provider, error) {
+// The cacheDir is used to store cached id_tokens on disk.
+func NewProvider(ctx context.Context, cfg *config.OAuth2Source, cacheDir string) (*Provider, error) {
 	p, err := oidc.NewProvider(ctx, cfg.Issuer)
 	if err != nil {
 		return nil, fmt.Errorf("initialize OIDC provider: %w", err)
@@ -82,6 +86,8 @@ func NewProvider(ctx context.Context, cfg *config.OAuth2Source) (*Provider, erro
 			RedirectURL: u.String(),
 		},
 		codeVerifier: verifier,
+		cache:        newCache(cacheDir),
+		cacheKey:     cacheKey(cfg.Issuer, cfg.ClientID, cfg.Scopes),
 	}, nil
 }
 
@@ -89,10 +95,21 @@ func NewProvider(ctx context.Context, cfg *config.OAuth2Source) (*Provider, erro
 // the id_token from the token response. The id_token is a signed JWT
 // suitable for use as a federated credential with Azure workload
 // identity login (az login --federated-token).
-func (p *Provider) AcquireToken(ctx context.Context) (idToken string, err error) {
+//
+// Cached tokens are returned when available unless [wif.WithForceRefresh]
+// is passed.
+func (p *Provider) AcquireToken(ctx context.Context, opts ...wif.AcquireOption) (idToken string, cached bool, err error) {
+	o := wif.ApplyOptions(opts)
+
+	if !o.ForceRefresh {
+		if tok, ok := p.cache.get(p.cacheKey); ok {
+			return tok, true, nil
+		}
+	}
+
 	state, err := randomState()
 	if err != nil {
-		return "", fmt.Errorf("generate OAuth2 state: %w", err)
+		return "", false, fmt.Errorf("generate OAuth2 state: %w", err)
 	}
 
 	p.callback.BaseContext = func(net.Listener) context.Context { return ctx }
@@ -107,10 +124,16 @@ func (p *Provider) AcquireToken(ctx context.Context) (idToken string, err error)
 
 	code, err := p.awaitCallback(ctx, state, serverErr)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 
-	return p.exchangeForIDToken(ctx, code)
+	idToken, err = p.exchangeForIDToken(ctx, code)
+	if err != nil {
+		return "", false, err
+	}
+
+	_ = p.cache.put(p.cacheKey, idToken)
+	return idToken, false, nil
 }
 
 // startServer starts the HTTP callback server in a background goroutine

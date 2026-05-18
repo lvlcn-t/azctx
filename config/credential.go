@@ -9,8 +9,8 @@ import (
 
 // Credential represents a named Azure credential definition.
 type Credential struct {
-	Name       string            `yaml:"name" json:"name"`
-	Credential CredentialDetails `yaml:"credential" json:"credential"`
+	Name    string            `yaml:"name" json:"name"`
+	Details CredentialDetails `yaml:"credential" json:"credential"`
 }
 
 // CredentialType identifies the kind of Azure credential.
@@ -139,15 +139,15 @@ func (credential *Credential) Validate() error {
 		errs = append(errs, errors.New("credential name is required"))
 	}
 
-	if credential.Credential.Type == "" {
+	if credential.Details.Type == "" {
 		errs = append(errs, ErrCredentialTypeRequired)
 	}
 
-	if _, err := NewCredentialType(string(credential.Credential.Type)); err != nil {
+	if _, err := NewCredentialType(string(credential.Details.Type)); err != nil {
 		errs = append(errs, fmt.Errorf("invalid credential type: %w", err))
 	}
 
-	switch credential.Credential.Type {
+	switch credential.Details.Type {
 	case CredentialTypeUser:
 		return errors.Join(errs...)
 	case CredentialTypeServicePrincipal:
@@ -155,15 +155,15 @@ func (credential *Credential) Validate() error {
 	case CredentialTypeManagedIdentity:
 		return errors.Join(errs...)
 	case CredentialTypeWorkloadIdentity:
-		if credential.Credential.Azure.ClientID == "" {
+		if credential.Details.Azure.ClientID == "" {
 			errs = append(errs, errors.New("workload identity credential requires client-id"))
 		}
 
-		if err := credential.Credential.Token.Validate(); err != nil {
+		if err := credential.Details.Token.Validate(); err != nil {
 			errs = append(errs, fmt.Errorf("invalid token configuration for workload identity credential: %w", err))
 		}
 	default:
-		errs = append(errs, fmt.Errorf("unsupported credential type %q", credential.Credential.Type))
+		errs = append(errs, fmt.Errorf("unsupported credential type %q", credential.Details.Type))
 	}
 
 	return errors.Join(errs...)
@@ -203,25 +203,25 @@ func (token *TokenDetails) Validate() error {
 // validateServicePrincipal validates service-principal specific fields.
 func (credential *Credential) validateServicePrincipal() error {
 	var errs []error
-	if credential.Credential.Azure.ClientID == "" {
+	if credential.Details.Azure.ClientID == "" {
 		errs = append(errs, errors.New("service-principal credential requires client-id"))
 	}
 
-	hasSecret := credential.Credential.Azure.ClientSecret != ""
-	hasCertificatePath := credential.Credential.Azure.ClientCertificatePath != ""
+	hasSecret := credential.Details.Azure.ClientSecret != ""
+	hasCertificatePath := credential.Details.Azure.ClientCertificatePath != ""
 
 	if !hasSecret && !hasCertificatePath {
 		errs = append(errs, errors.New("service-principal credential requires client-secret or client-certificate-path"))
 	}
 
-	if hasSecret && isKeyVaultRef(credential.Credential.Azure.ClientSecret) {
-		if err := validateKeyVaultURI(credential.Credential.Azure.ClientSecret); err != nil {
+	if hasSecret && isKeyVaultRef(credential.Details.Azure.ClientSecret) {
+		if err := validateKeyVaultURI(credential.Details.Azure.ClientSecret); err != nil {
 			errs = append(errs, fmt.Errorf("invalid client-secret Key Vault reference: %w", err))
 		}
 	}
 
-	if hasCertificatePath && isKeyVaultRef(credential.Credential.Azure.ClientCertificatePath) {
-		if err := validateKeyVaultURI(credential.Credential.Azure.ClientCertificatePath); err != nil {
+	if hasCertificatePath && isKeyVaultRef(credential.Details.Azure.ClientCertificatePath) {
+		if err := validateKeyVaultURI(credential.Details.Azure.ClientCertificatePath); err != nil {
 			errs = append(errs, fmt.Errorf("invalid client-certificate-path Key Vault reference: %w", err))
 		}
 	}

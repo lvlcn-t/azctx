@@ -47,7 +47,7 @@ func TestCredentialValidate(t *testing.T) {
 			name: "service principal with secret",
 			input: &Credential{
 				Name: ciName,
-				Credential: CredentialDetails{
+				Details: CredentialDetails{
 					Type: CredentialTypeServicePrincipal,
 					Azure: AzureCredential{
 						ClientID:     clientIDVal,
@@ -60,7 +60,7 @@ func TestCredentialValidate(t *testing.T) {
 			name: "service principal with certificate",
 			input: &Credential{
 				Name: ciName,
-				Credential: CredentialDetails{
+				Details: CredentialDetails{
 					Type: CredentialTypeServicePrincipal,
 					Azure: AzureCredential{
 						ClientID:              clientIDVal,
@@ -73,7 +73,7 @@ func TestCredentialValidate(t *testing.T) {
 			name: "service principal missing id",
 			input: &Credential{
 				Name: ciName,
-				Credential: CredentialDetails{
+				Details: CredentialDetails{
 					Type: CredentialTypeServicePrincipal,
 					Azure: AzureCredential{
 						ClientSecret: "secret",
@@ -86,7 +86,7 @@ func TestCredentialValidate(t *testing.T) {
 			name: "service principal missing auth material",
 			input: &Credential{
 				Name: ciName,
-				Credential: CredentialDetails{
+				Details: CredentialDetails{
 					Type: CredentialTypeServicePrincipal,
 					Azure: AzureCredential{
 						ClientID: clientIDVal,
@@ -99,7 +99,7 @@ func TestCredentialValidate(t *testing.T) {
 			name: "user",
 			input: &Credential{
 				Name: devContext.Name,
-				Credential: CredentialDetails{
+				Details: CredentialDetails{
 					Type: CredentialTypeUser,
 				},
 			},
@@ -108,7 +108,7 @@ func TestCredentialValidate(t *testing.T) {
 			name: "managed identity",
 			input: &Credential{
 				Name: "mi",
-				Credential: CredentialDetails{
+				Details: CredentialDetails{
 					Type: CredentialTypeManagedIdentity,
 				},
 			},
@@ -117,7 +117,7 @@ func TestCredentialValidate(t *testing.T) {
 			name: "workload identity",
 			input: &Credential{
 				Name: "workload-identity",
-				Credential: CredentialDetails{
+				Details: CredentialDetails{
 					Type: CredentialTypeWorkloadIdentity,
 					Azure: AzureCredential{
 						ClientID: clientIDVal,
@@ -135,7 +135,7 @@ func TestCredentialValidate(t *testing.T) {
 			name: "workload identity missing token source",
 			input: &Credential{
 				Name: "workload-identity",
-				Credential: CredentialDetails{
+				Details: CredentialDetails{
 					Type:  CredentialTypeWorkloadIdentity,
 					Azure: AzureCredential{ClientID: clientIDVal},
 				},
@@ -146,7 +146,7 @@ func TestCredentialValidate(t *testing.T) {
 			name: "workload identity missing token file path",
 			input: &Credential{
 				Name: "workload-identity",
-				Credential: CredentialDetails{
+				Details: CredentialDetails{
 					Type:  CredentialTypeWorkloadIdentity,
 					Azure: AzureCredential{ClientID: clientIDVal},
 					Token: TokenDetails{
@@ -161,7 +161,7 @@ func TestCredentialValidate(t *testing.T) {
 			name: "workload identity with invalid token source",
 			input: &Credential{
 				Name: "workload-identity",
-				Credential: CredentialDetails{
+				Details: CredentialDetails{
 					Type:  CredentialTypeWorkloadIdentity,
 					Azure: AzureCredential{ClientID: clientIDVal},
 					Token: TokenDetails{

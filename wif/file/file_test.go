@@ -83,7 +83,7 @@ func TestAcquireToken(t *testing.T) {
 
 			p := &Provider{path: "/token", fsys: fs}
 
-			got, err := p.AcquireToken(t.Context())
+			got, _, err := p.AcquireToken(t.Context())
 			if tt.wantErr {
 				require.Error(t, err)
 				return
@@ -99,6 +99,6 @@ func TestAcquireToken_FileNotFound(t *testing.T) {
 
 	p := &Provider{path: "/nonexistent/token", fsys: afero.NewMemMapFs()}
 
-	_, err := p.AcquireToken(t.Context())
+	_, _, err := p.AcquireToken(t.Context())
 	require.Error(t, err)
 }

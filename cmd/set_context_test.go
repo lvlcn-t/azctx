@@ -28,9 +28,9 @@ func TestSetContextCreate(t *testing.T) {
 	got := readConfigForTest(t, path)
 	contextValue, found := got.ContextByName("stage")
 	require.True(t, found)
-	assert.Equal(t, "corp", contextValue.Context.Tenant)
-	assert.Equal(t, "user", contextValue.Context.Credential)
-	assert.Equal(t, "sub-stage", contextValue.Context.Subscription)
+	assert.Equal(t, "corp", contextValue.Details.Tenant)
+	assert.Equal(t, "user", contextValue.Details.Credential)
+	assert.Equal(t, "sub-stage", contextValue.Details.Subscription)
 }
 
 func TestSetContextUpdate(t *testing.T) {
@@ -52,8 +52,8 @@ func TestSetContextUpdate(t *testing.T) {
 	got := readConfigForTest(t, path)
 	contextValue, found := got.ContextByName("dev")
 	require.True(t, found)
-	assert.Equal(t, "platform", contextValue.Context.Tenant)
-	assert.Equal(t, "sp", contextValue.Context.Credential)
+	assert.Equal(t, "platform", contextValue.Details.Tenant)
+	assert.Equal(t, "sp", contextValue.Details.Credential)
 }
 
 func TestSetContextMissingTenant(t *testing.T) {

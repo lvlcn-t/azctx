@@ -29,8 +29,8 @@ func TestSetCredentialCreate(t *testing.T) {
 	got := readConfigForTest(t, path)
 	credential, found := got.CredentialByName("new-sp")
 	require.True(t, found)
-	assert.Equal(t, config.CredentialTypeServicePrincipal, credential.Credential.Type)
-	assert.Equal(t, "client-new", credential.Credential.Azure.ClientID)
+	assert.Equal(t, config.CredentialTypeServicePrincipal, credential.Details.Type)
+	assert.Equal(t, "client-new", credential.Details.Azure.ClientID)
 }
 
 func TestSetCredentialInvalidType(t *testing.T) {

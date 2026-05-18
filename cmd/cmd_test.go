@@ -75,14 +75,14 @@ func baseConfig() *config.Config {
 	return &config.Config{
 		CurrentContext: devContext,
 		Tenants: []config.Tenant{
-			{Name: "corp", Tenant: config.TenantDetails{ID: "tenant-1"}},
-			{Name: "platform", Tenant: config.TenantDetails{ID: "tenant-2"}},
+			{Name: "corp", Details: config.TenantDetails{ID: "tenant-1"}},
+			{Name: "platform", Details: config.TenantDetails{ID: "tenant-2"}},
 		},
 		Credentials: []config.Credential{
-			{Name: "user", Credential: config.CredentialDetails{Type: config.CredentialTypeUser}},
+			{Name: "user", Details: config.CredentialDetails{Type: config.CredentialTypeUser}},
 			{
 				Name: "sp",
-				Credential: config.CredentialDetails{
+				Details: config.CredentialDetails{
 					Type: config.CredentialTypeServicePrincipal,
 					Azure: config.AzureCredential{
 						ClientID:     "client-1",
@@ -94,7 +94,7 @@ func baseConfig() *config.Config {
 		Contexts: []config.Context{
 			{
 				Name: devContext,
-				Context: config.ContextDetails{
+				Details: config.ContextDetails{
 					Tenant:       "corp",
 					Credential:   "user",
 					Subscription: "sub-dev",
@@ -102,7 +102,7 @@ func baseConfig() *config.Config {
 			},
 			{
 				Name: prodContext,
-				Context: config.ContextDetails{
+				Details: config.ContextDetails{
 					Tenant:       "platform",
 					Credential:   "sp",
 					Subscription: "sub-prod",

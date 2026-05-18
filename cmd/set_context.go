@@ -76,12 +76,12 @@ func (c *setCtxCmd) run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	t, _ := store.Config.TenantByName(nextCtx.Context.Tenant)
-	if t.Tenant.ID == "" {
+	t, _ := store.Config.TenantByName(nextCtx.Details.Tenant)
+	if t.Details.ID == "" {
 		return fmt.Errorf("tenant %q is missing id", t.Name)
 	}
 
-	cred, _ := store.Config.CredentialByName(nextCtx.Context.Credential)
+	cred, _ := store.Config.CredentialByName(nextCtx.Details.Credential)
 	if err = cred.Validate(); err != nil {
 		return err
 	}
@@ -113,7 +113,7 @@ func nextContextFromFlags(
 ) (config.Context, bool) {
 	nextCtx := config.Context{
 		Name: ctx,
-		Context: config.ContextDetails{
+		Details: config.ContextDetails{
 			Tenant:       tenant,
 			Credential:   credential,
 			Subscription: subscriptionID,
@@ -127,15 +127,15 @@ func nextContextFromFlags(
 
 	nextCtx = existing
 	if tenant != "" {
-		nextCtx.Context.Tenant = tenant
+		nextCtx.Details.Tenant = tenant
 	}
 
 	if credential != "" {
-		nextCtx.Context.Credential = credential
+		nextCtx.Details.Credential = credential
 	}
 
 	if subscriptionChanged {
-		nextCtx.Context.Subscription = subscriptionID
+		nextCtx.Details.Subscription = subscriptionID
 	}
 
 	return nextCtx, true

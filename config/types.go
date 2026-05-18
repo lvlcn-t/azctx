@@ -145,20 +145,20 @@ func (cfg *Config) ValidateContextReferences(context Context) error {
 		return errors.New("context name is required")
 	}
 
-	if context.Context.Tenant == "" {
+	if context.Details.Tenant == "" {
 		return errors.New("context tenant is required")
 	}
 
-	if context.Context.Credential == "" {
+	if context.Details.Credential == "" {
 		return errors.New("context credential is required")
 	}
 
-	if _, found := cfg.TenantByName(context.Context.Tenant); !found {
-		return fmt.Errorf("tenant %q does not exist", context.Context.Tenant)
+	if _, found := cfg.TenantByName(context.Details.Tenant); !found {
+		return fmt.Errorf("tenant %q does not exist", context.Details.Tenant)
 	}
 
-	if _, found := cfg.CredentialByName(context.Context.Credential); !found {
-		return fmt.Errorf("credential %q does not exist", context.Context.Credential)
+	if _, found := cfg.CredentialByName(context.Details.Credential); !found {
+		return fmt.Errorf("credential %q does not exist", context.Details.Credential)
 	}
 
 	return nil

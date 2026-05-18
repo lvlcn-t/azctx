@@ -112,7 +112,7 @@ func (c *client) Login(ctx context.Context) error {
 	}
 
 	if err := c.login(ctx); err != nil {
-		return err
+		return fmt.Errorf("%w: %w", ErrLogin, err)
 	}
 
 	if !c.azVersion.supportsScopedLogin() && c.subscriptionID != "" {
@@ -126,7 +126,7 @@ func (c *client) login(ctx context.Context) error {
 	args := []string{flagLogin}
 	args = appendIf(c.allowNoSubscriptions, args, flagAllowNoSubscriptions)
 
-	switch c.credential.Credential.Type {
+	switch c.credential.Details.Type {
 	case config.CredentialTypeServicePrincipal:
 		return c.loginServicePrincipal(ctx)
 	case config.CredentialTypeUser:
@@ -137,13 +137,13 @@ func (c *client) login(ctx context.Context) error {
 		})
 	case config.CredentialTypeManagedIdentity:
 		args = append(args, "--identity")
-		args = appendIf(c.credential.Credential.Azure.ClientID != "", args, "--client-id", c.credential.Credential.Azure.ClientID)
+		args = appendIf(c.credential.Details.Azure.ClientID != "", args, "--client-id", c.credential.Details.Azure.ClientID)
 		args = c.appendScopedLoginArgs(args)
 		return az(ctx, args...)
 	case config.CredentialTypeWorkloadIdentity:
 		return c.loginWithWorkloadIdentity(ctx)
 	default:
-		return fmt.Errorf("unsupported credential type %q", c.credential.Credential.Type)
+		return fmt.Errorf("unsupported credential type %q", c.credential.Details.Type)
 	}
 }
 
@@ -152,12 +152,12 @@ func (c *client) loginServicePrincipal(ctx context.Context) error {
 	args := []string{
 		flagLogin,
 		flagServicePrincipal,
-		flagUsername, c.credential.Credential.Azure.ClientID,
+		flagUsername, c.credential.Details.Azure.ClientID,
 		flagTenant, c.tenantID,
 	}
 	args = c.appendScopedLoginArgs(args)
 
-	if c.credential.Credential.Azure.ClientSecret != "" {
+	if c.credential.Details.Azure.ClientSecret != "" {
 		return c.loginWithSecret(ctx, args)
 	}
 
@@ -166,7 +166,7 @@ func (c *client) loginServicePrincipal(ctx context.Context) error {
 
 // loginWithSecret performs az login with a client secret, resolving from Key Vault if needed.
 func (c *client) loginWithSecret(ctx context.Context, args []string) error {
-	secret := c.credential.Credential.Azure.ClientSecret
+	secret := c.credential.Details.Azure.ClientSecret
 	if keyvault.IsReference(secret) {
 		kv, err := c.resolver()
 		if err != nil {
@@ -186,7 +186,7 @@ func (c *client) loginWithSecret(ctx context.Context, args []string) error {
 
 // loginWithCert performs az login with a client certificate, resolving from Key Vault if needed.
 func (c *client) loginWithCert(ctx context.Context, args []string) error {
-	certPath := c.credential.Credential.Azure.ClientCertificatePath
+	certPath := c.credential.Details.Azure.ClientCertificatePath
 	if keyvault.IsReference(certPath) {
 		resolver, err := c.resolver()
 		if err != nil {
@@ -238,7 +238,7 @@ func (c *client) loginWithWorkloadIdentity(ctx context.Context) error {
 	args := []string{
 		flagLogin,
 		flagServicePrincipal,
-		flagUsername, c.credential.Credential.Azure.ClientID,
+		flagUsername, c.credential.Details.Azure.ClientID,
 		flagTenant, c.tenantID,
 		flagFederatedToken, c.federatedToken,
 	}
