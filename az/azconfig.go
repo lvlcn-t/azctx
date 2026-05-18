@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/spf13/afero"
-	ini "gopkg.in/ini.v1"
+	"gopkg.in/ini.v1"
 )
 
 const (
