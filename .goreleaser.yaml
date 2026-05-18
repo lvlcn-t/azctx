@@ -4,6 +4,15 @@ project_name: azctx
 metadata:
   mod_timestamp: "{{ .CommitTimestamp }}"
 
+before:
+  hooks:
+    - sh -c "GOEXPERIMENT=jsonv2 go generate ./..."
+    - sh -c "GOEXPERIMENT=jsonv2 go mod tidy"
+    - mkdir -p completions
+    - sh -c "GOEXPERIMENT=jsonv2 go run . completion zsh > completions/azctx.zsh"
+    - sh -c "GOEXPERIMENT=jsonv2 go run . completion bash > completions/azctx.bash"
+    - sh -c "GOEXPERIMENT=jsonv2 go run . completion fish > completions/azctx.fish"
+
 builds:
   - id: linux
     env: [CGO_ENABLED=0, GOEXPERIMENT=jsonv2]
@@ -59,6 +68,11 @@ archives:
           owner: root
           group: root
           mtime: "{{ .CommitDate }}"
+      - src: completions/*
+        info:
+          owner: root
+          group: root
+          mtime: "{{ .CommitDate }}"
 
 checksum:
   name_template: checksums.txt
@@ -85,8 +99,10 @@ homebrew_casks:
       - formula: azure-cli
     url:
       verified: github.com/lvlcn-t/azctx/releases/download
-    generate_completions_from_executable:
-      shell_parameter_format: cobra
+    completions:
+      bash: completions/azctx.bash
+      zsh: completions/azctx.zsh
+      fish: completions/azctx.fish
     hooks:
       post:
         install: |
