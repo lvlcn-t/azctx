@@ -2,11 +2,13 @@ package oauth2
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"runtime"
 	"testing"
 	"time"
 
@@ -19,28 +21,41 @@ func TestS256Challenge(t *testing.T) {
 	// RFC 7636 Appendix B test vector:
 	// verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
 	// expected challenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+	const expected = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
 	got := s256Challenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk")
-	assert.Equal(t, "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", got)
+	assert.Equal(t, expected, got)
 }
 
 func TestRandomState(t *testing.T) {
-	a, err := randomState()
-	require.NoError(t, err)
-	b, err := randomState()
-	require.NoError(t, err)
+	const iterations = 100
+	seen := make(map[string]struct{}, iterations)
 
-	assert.Len(t, a, 43) // 32 bytes → 43 base64url chars (no padding)
-	assert.NotEqual(t, a, b)
+	for range iterations {
+		s, err := randomState()
+		require.NoError(t, err)
+		assert.Len(t, s, 43)
+		_, err = base64.RawURLEncoding.DecodeString(s)
+		assert.NoError(t, err, "expected valid base64url encoding")
+		seen[s] = struct{}{}
+	}
+
+	assert.Len(t, seen, iterations, "expected all values to be unique")
 }
 
 func TestRandomVerifier(t *testing.T) {
-	a, err := randomVerifier()
-	require.NoError(t, err)
-	b, err := randomVerifier()
-	require.NoError(t, err)
+	const iterations = 100
+	seen := make(map[string]struct{}, iterations)
 
-	assert.Len(t, a, 43)
-	assert.NotEqual(t, a, b)
+	for range iterations {
+		v, err := randomVerifier()
+		require.NoError(t, err)
+		assert.Len(t, v, 43)
+		_, err = base64.RawURLEncoding.DecodeString(v)
+		assert.NoError(t, err, "expected valid base64url encoding")
+		seen[v] = struct{}{}
+	}
+
+	assert.Len(t, seen, iterations, "expected all values to be unique")
 }
 
 func TestTrySend(t *testing.T) {
@@ -53,8 +68,9 @@ func TestTrySend(t *testing.T) {
 	t.Run("does not block on full channel", func(t *testing.T) {
 		ch := make(chan string, 1)
 		ch <- "first"
-		// Should not block or panic.
-		trySend(ch, "second")
+		assert.NotPanics(t, func() {
+			trySend(ch, "second")
+		})
 		assert.Equal(t, "first", <-ch)
 	})
 }
@@ -96,7 +112,9 @@ func TestAwaitCallback(t *testing.T) {
 			serverErr := p.startServer()
 			t.Cleanup(func() { _ = p.shutdown(t.Context()) })
 
-			callbackURL := p.cfg.RedirectURL + "?" + tt.query.Encode()
+			callbackURL, err := url.Parse(p.cfg.RedirectURL)
+			require.NoError(t, err)
+			callbackURL.RawQuery = tt.query.Encode()
 
 			// Make the callback request in a goroutine since awaitCallback blocks.
 			ctx := t.Context()
@@ -110,14 +128,18 @@ func TestAwaitCallback(t *testing.T) {
 				resultCh <- result{code, err}
 			}()
 
-			// Give the handler time to register before hitting it.
-			time.Sleep(10 * time.Millisecond)
-
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, callbackURL, http.NoBody)
-			require.NoError(t, err)
-			resp, err := http.DefaultClient.Do(req)
-			require.NoError(t, err)
-			resp.Body.Close()
+			// Poll until awaitCallback has registered its handler (not 404).
+			for {
+				req, err := http.NewRequestWithContext(ctx, http.MethodGet, callbackURL.String(), http.NoBody)
+				require.NoError(t, err)
+				resp, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				resp.Body.Close()
+				if resp.StatusCode != http.StatusNotFound {
+					break
+				}
+				runtime.Gosched()
+			}
 
 			r := <-resultCh
 			if tt.wantErr {
@@ -194,7 +216,8 @@ func TestExchangeForIDToken(t *testing.T) {
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tt.statusCode)
-				json.NewEncoder(w).Encode(tt.response) //nolint:errcheck // test
+				err := json.NewEncoder(w).Encode(tt.response)
+				require.NoError(t, err)
 			}))
 			t.Cleanup(srv.Close)
 
@@ -226,11 +249,12 @@ func TestExchangeForIDToken_SendsPKCEVerifier(t *testing.T) {
 		assert.Equal(t, verifier, r.PostForm.Get("code_verifier"))
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{ //nolint:errcheck // test
+		err := json.NewEncoder(w).Encode(map[string]any{
 			"access_token": "access-xyz",
 			"token_type":   "Bearer",
 			"id_token":     "eyJ.test.sig",
 		})
+		require.NoError(t, err)
 	}))
 	t.Cleanup(srv.Close)
 
@@ -282,7 +306,10 @@ func newTestProvider(t *testing.T) *Provider {
 	require.NoError(t, err)
 
 	addr := ln.Addr().String()
-	redirectURL := "http://" + addr + "/callback"
+	redirectURL, err := url.Parse("http://" + addr + "/callback")
+	require.NoError(t, err)
+	oauth2URL, err := url.Parse("http://" + addr + "/token")
+	require.NoError(t, err)
 
 	mux := http.NewServeMux()
 	return &Provider{
@@ -295,10 +322,12 @@ func newTestProvider(t *testing.T) *Provider {
 		},
 		cfg: oauth2.Config{
 			ClientID:    "test-client",
-			RedirectURL: redirectURL,
+			RedirectURL: redirectURL.String(),
 			Endpoint: oauth2.Endpoint{
-				TokenURL: "http://" + addr + "/token",
+				TokenURL: oauth2URL.String(),
 			},
 		},
+		provider:     nil,
+		codeVerifier: "",
 	}
 }
