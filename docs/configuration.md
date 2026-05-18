@@ -149,13 +149,13 @@ URI format: `keyvault://<vault>/<secrets|certificates>/<name>[/<version>]`
 
 <!-- markdownlint-disable MD028 -->
 
-> [!IMPORTANT] Ambient credential required
+> [!IMPORTANT]
 > Resolution uses [`DefaultAzureCredential`][dac], so an ambient
 > credential must already be active (a user session, managed identity,
 > or environment variables). Using the same service principal whose
 > secret lives in Key Vault as the only credential is unsupported.
 
-> [!NOTE] Certificate handling
+> [!NOTE]
 > For certificates, azctx writes the fetched PEM to a temporary file
 > (mode `0600`) for the duration of `az login`, then deletes it.
 
