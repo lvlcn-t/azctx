@@ -15,7 +15,10 @@ or user-assigned managed identity — no client secret required.
   external IdP's OIDC flow to obtain a federated token locally.
 - **Eliminate service principals** — federate directly against a
   user-assigned managed identity so no app registration or secret
-  rotation is needed.
+  rotation is needed. Unlike app registrations, managed identities
+  require no Global Admin or Privileged Role Administrator — anyone
+  with Contributor on the resource group can create one, significantly
+  lowering the privilege barrier.
 
 ## Token sources
 
@@ -98,6 +101,11 @@ your IdP does not support PKCE (rare).
    authorization code.
 4. azctx exchanges the code for an ID token.
 5. The token is passed to `az login --federated-token`.
+
+The OAuth2 PKCE flow effectively acts as a local federated access
+broker: you authenticate once to your external IdP and receive a scoped
+token that Azure accepts for a specific managed identity, giving each
+developer least-privilege access without any shared secret.
 
 ## File-based tokens (CI/CD)
 
