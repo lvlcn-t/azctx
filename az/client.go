@@ -15,14 +15,15 @@ import (
 const (
 	azInstallURL = "https://aka.ms/install-azure-cli"
 
-	flagLogin               = "login"
-	flagServicePrincipal    = "--service-principal"
-	flagUsername            = "--username"
-	flagTenant              = "--tenant"
-	flagPassword            = "--password"
-	flagFederatedToken      = "--federated-token"
-	flagSubscription        = "--subscription"
-	flagDisableSubDiscovery = "--skip-subscription-discovery"
+	flagLogin                = "login"
+	flagServicePrincipal     = "--service-principal"
+	flagUsername             = "--username"
+	flagTenant               = "--tenant"
+	flagPassword             = "--password"
+	flagFederatedToken       = "--federated-token"
+	flagSubscription         = "--subscription"
+	flagDisableSubDiscovery  = "--skip-subscription-discovery"
+	flagAllowNoSubscriptions = "--allow-no-subscriptions"
 )
 
 var (
@@ -40,16 +41,19 @@ type CLI interface {
 	WithTenant(tenantID string) CLI
 	// WithSubscription adds the given subscription ID to the client for use in subsequent Login calls.
 	WithSubscription(subscriptionID string) CLI
+	// AllowNoSubscriptions configures the client to allow logging in without a subscription.
+	AllowNoSubscriptions(allow bool) CLI
 	// Login authenticates Azure CLI for the given credential, tenant and optional subscription.
 	Login(ctx context.Context) error
 }
 
 type client struct {
-	azVersion      version
-	credential     *config.Credential
-	tenantID       string
-	subscriptionID string
-	kvResolver     *keyvault.Resolver
+	azVersion            version
+	credential           *config.Credential
+	tenantID             string
+	subscriptionID       string
+	allowNoSubscriptions bool
+	kvResolver           *keyvault.Resolver
 }
 
 func NewClient(ctx context.Context) (CLI, error) {
@@ -81,6 +85,11 @@ func (c *client) WithSubscription(subscriptionID string) CLI {
 	return c
 }
 
+func (c *client) AllowNoSubscriptions(allow bool) CLI {
+	c.allowNoSubscriptions = allow
+	return c
+}
+
 // Login authenticates Azure CLI for the given credential, tenant and optional subscription.
 func (c *client) Login(ctx context.Context) error {
 	if c.credential == nil {
@@ -108,6 +117,7 @@ func (c *client) Login(ctx context.Context) error {
 
 func (c *client) login(ctx context.Context) error {
 	args := []string{flagLogin}
+	args = appendIf(c.allowNoSubscriptions, args, flagAllowNoSubscriptions)
 
 	switch c.credential.Credential.Type {
 	case config.CredentialTypeServicePrincipal:
