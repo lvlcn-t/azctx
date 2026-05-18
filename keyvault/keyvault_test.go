@@ -12,7 +12,7 @@ import (
 const testVault = "my-vault"
 
 const (
-	testSecretURI = "keyvault://my-vault/secrets/my-secret" //nolint:gosec // test URI, not a real credential
+	testSecretURI = "keyvault://my-vault/secrets/my-secret"
 	testCertURI   = "keyvault://my-vault/certificates/my-cert"
 )
 

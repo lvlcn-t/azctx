@@ -1,6 +1,7 @@
 package config
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"net/url"
@@ -81,15 +82,50 @@ type FileSource struct {
 	Path string `yaml:"path" json:"path"`
 }
 
-// OAuth2Source represents an OAuth2-based token source.
+// PKCE controls whether Proof Key for Code Exchange is used in the
+// authorization code flow. The zero value is treated as [PKCEAuto].
+type PKCE string
+
+const (
+	// PKCEAuto enables PKCE with S256 (default when omitted).
+	PKCEAuto PKCE = "auto"
+	// PKCEEnabled explicitly enables PKCE with S256.
+	PKCEEnabled PKCE = "enabled"
+	// PKCEDisabled explicitly disables PKCE.
+	PKCEDisabled PKCE = "disabled"
+)
+
+// UnmarshalText implements [encoding.TextUnmarshaler]. It validates the
+// raw value and normalizes empty strings to [PKCEAuto].
+func (p *PKCE) UnmarshalText(b []byte) error {
+	v := PKCE(b)
+	switch v {
+	case "", PKCEAuto, PKCEEnabled, PKCEDisabled:
+		*p = cmp.Or(v, PKCEAuto)
+		return nil
+	default:
+		return fmt.Errorf("invalid pkce value %q", v)
+	}
+}
+
+// IsEnabled reports whether PKCE should be used. Returns true for all
+// values except [PKCEDisabled].
+func (p PKCE) IsEnabled() bool {
+	return p != PKCEDisabled
+}
+
+func (p PKCE) String() string {
+	return string(p)
+}
+
+// OAuth2Source represents an OAuth2-based token source configuration for
+// the authorization code flow with OIDC discovery.
 type OAuth2Source struct {
-	Issuer       string   `yaml:"issuer" json:"issuer"`
-	ClientID     string   `yaml:"client-id" json:"clientId"`
-	Scopes       []string `yaml:"scopes" json:"scopes"`
-	RedirectURI  string   `yaml:"redirect-uri" json:"redirectUri"`
-	ResponseMode string   `yaml:"response-mode" json:"responseMode"`
-	GrantType    string   `yaml:"grant-type" json:"grantType"`
-	PKCE         string   `yaml:"pkce,omitempty" json:"pkce,omitempty"`
+	Issuer      string   `yaml:"issuer" json:"issuer"`
+	ClientID    string   `yaml:"client-id" json:"clientId"`
+	Scopes      []string `yaml:"scopes" json:"scopes"`
+	RedirectURI string   `yaml:"redirect-uri,omitempty" json:"redirectUri,omitempty"`
+	PKCE        PKCE     `yaml:"pkce,omitempty" json:"pkce,omitempty"`
 }
 
 // Validate validates credential data for the selected credential type.
