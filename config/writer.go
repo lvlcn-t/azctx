@@ -10,6 +10,11 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+const (
+	yamlIndent    = 2
+	yamlLineWidth = -1
+)
+
 type Writer struct {
 	fsys afero.Fs
 }
@@ -35,7 +40,11 @@ func (w *Writer) Write(path string, cfg *Config) error {
 		return fmt.Errorf("create config directory %q: %w", parent, err)
 	}
 
-	b, err := yaml.Marshal(cfg)
+	b, err := yaml.Dump(cfg,
+		yaml.WithIndent(yamlIndent),
+		yaml.WithCompactSeqIndent(false),
+		yaml.WithLineWidth(yamlLineWidth),
+	)
 	if err != nil {
 		return fmt.Errorf("marshal config: %w", err)
 	}
