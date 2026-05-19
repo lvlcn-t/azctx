@@ -1,6 +1,7 @@
 package config
 
 import (
+	"cmp"
 	"fmt"
 	"io/fs"
 	"path/filepath"
@@ -24,6 +25,9 @@ func (w *Writer) Write(path string, cfg *Config) error {
 	if cfg == nil {
 		cfg = &Config{}
 	}
+
+	cfg.APIVersion = cmp.Or(cfg.APIVersion, apiVersion)
+	cfg.Kind = cmp.Or(cfg.Kind, kind)
 
 	const dirMode fs.FileMode = 0o700
 	parent := filepath.Dir(path)

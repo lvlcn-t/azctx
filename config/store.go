@@ -1,5 +1,12 @@
 package config
 
+import "cmp"
+
+const (
+	apiVersion = "azctx.lvlcn-t.dev/v1alpha1"
+	kind       = "Config"
+)
+
 // Store is the fully loaded and indexed azctx config state.
 type Store struct {
 	Config    Config
@@ -21,14 +28,22 @@ type sourceIndex struct {
 // FileConfig returns the parsed config for one source path.
 func (s *Store) FileConfig(path string) Config {
 	if s == nil {
-		return Config{}
+		return Config{
+			APIVersion: apiVersion,
+			Kind:       kind,
+		}
 	}
 
 	if cfg, exists := s.fileConfigs[path]; exists {
+		cfg.APIVersion = cmp.Or(cfg.APIVersion, apiVersion)
+		cfg.Kind = cmp.Or(cfg.Kind, kind)
 		return cfg
 	}
 
-	return Config{}
+	return Config{
+		APIVersion: apiVersion,
+		Kind:       kind,
+	}
 }
 
 // PathForContext returns the source path responsible for a context entry.

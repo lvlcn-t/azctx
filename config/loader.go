@@ -2,6 +2,7 @@ package config
 
 import (
 	"bytes"
+	"cmp"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -42,7 +43,10 @@ func (l *Loader) Load() (Store, error) {
 	}
 
 	loaded := Store{
-		Config:      Config{},
+		Config: Config{
+			APIVersion: apiVersion,
+			Kind:       kind,
+		},
 		Paths:       paths,
 		fileConfigs: make(map[string]Config, len(paths)),
 		sources: sourceIndex{
@@ -112,6 +116,9 @@ func (l *Loader) readConfig(path string) (Config, error) {
 	if err := yaml.Unmarshal(raw, &cfg); err != nil {
 		return Config{}, fmt.Errorf("parse config %q: %w", path, err)
 	}
+
+	cfg.APIVersion = cmp.Or(cfg.APIVersion, apiVersion)
+	cfg.Kind = cmp.Or(cfg.Kind, kind)
 
 	return cfg, nil
 }
