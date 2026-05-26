@@ -15,7 +15,7 @@ import (
 
 type useCommand struct {
 	az     func(ctx context.Context) (az.CLI, error)
-	wif    func(ctx context.Context, cfg config.TokenDetails, cacheDir string) (wif.Provider, error)
+	wif    factory.TokenProvider
 	loader config.Loader
 	writer config.Writer
 }
@@ -26,7 +26,7 @@ func newUseCmd() *cobra.Command {
 		loader: config.NewLoader(),
 		writer: config.NewWriter(),
 		az:     az.NewClient,
-		wif:    factory.NewProvider,
+		wif:    factory.NewTokenProvider,
 	}
 
 	useCmd := &cobra.Command{ //nolint:exhaustruct // Cobra command definition

@@ -14,13 +14,16 @@ import (
 
 // Compile-time interface satisfaction checks.
 var (
-	_ wif.Provider = (*oauth2.Provider)(nil)
-	_ wif.Provider = (*file.Provider)(nil)
+	_ wif.Provider  = (*oauth2.Provider)(nil)
+	_ wif.Provider  = (*file.Provider)(nil)
+	_ TokenProvider = NewTokenProvider
 )
 
-// NewProvider creates a token provider based on the configured token source.
+type TokenProvider func(ctx context.Context, cfg config.TokenDetails, cacheDir string) (wif.Provider, error)
+
+// NewTokenProvider creates a token provider based on the configured token source.
 // The cacheDir is used by the OAuth2 provider to store cached tokens.
-func NewProvider(ctx context.Context, cfg config.TokenDetails, cacheDir string) (wif.Provider, error) {
+func NewTokenProvider(ctx context.Context, cfg config.TokenDetails, cacheDir string) (wif.Provider, error) {
 	switch cfg.Source {
 	case config.TokenSourceFile:
 		return file.NewProvider(cfg.File)

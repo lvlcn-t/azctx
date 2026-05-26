@@ -14,12 +14,12 @@ func TestRedactArgs(t *testing.T) {
 	}{
 		{
 			name: "password redacted",
-			args: []string{flagLogin, flagServicePrincipal, flagUsername, "app-id", flagPassword, "s3cret", flagTenant, "t1"},
+			args: []string{cmdLogin, flagServicePrincipal, flagUsername, "app-id", flagPassword, "s3cret", flagTenant, "t1"},
 			want: "login --service-principal --username app-id --password [REDACTED] --tenant t1",
 		},
 		{
 			name: "federated-token redacted",
-			args: []string{flagLogin, flagServicePrincipal, flagUsername, "app-id", flagFederatedToken, "eyJhbGci...", flagTenant, "t1"},
+			args: []string{cmdLogin, flagServicePrincipal, flagUsername, "app-id", flagFederatedToken, "eyJhbGci...", flagTenant, "t1"},
 			want: "login --service-principal --username app-id --federated-token [REDACTED] --tenant t1",
 		},
 		{
@@ -29,7 +29,7 @@ func TestRedactArgs(t *testing.T) {
 		},
 		{
 			name: "sensitive flag as last arg no panic",
-			args: []string{flagLogin, flagPassword},
+			args: []string{cmdLogin, flagPassword},
 			want: "login --password",
 		},
 		{

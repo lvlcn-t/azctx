@@ -14,7 +14,8 @@ import (
 const (
 	azInstallURL = "https://aka.ms/install-azure-cli"
 
-	flagLogin                = "login"
+	cmdLogin = "login"
+
 	flagServicePrincipal     = "--service-principal"
 	flagUsername             = "--username"
 	flagTenant               = "--tenant"
@@ -123,8 +124,7 @@ func (c *client) Login(ctx context.Context) error {
 }
 
 func (c *client) login(ctx context.Context) error {
-	args := []string{flagLogin}
-	args = appendIf(c.allowNoSubscriptions, args, flagAllowNoSubscriptions)
+	args := c.baseArgs()
 
 	switch c.credential.Details.Type {
 	case config.CredentialTypeServicePrincipal:
@@ -132,13 +132,11 @@ func (c *client) login(ctx context.Context) error {
 	case config.CredentialTypeUser:
 		return withLoginExperienceOff(func() error {
 			args = append(args, flagTenant, c.tenantID, "--output", "none")
-			args = c.appendScopedLoginArgs(args)
 			return az(ctx, args...)
 		})
 	case config.CredentialTypeManagedIdentity:
 		args = append(args, "--identity")
 		args = appendIf(c.credential.Details.Azure.ClientID != "", args, "--client-id", c.credential.Details.Azure.ClientID)
-		args = c.appendScopedLoginArgs(args)
 		return az(ctx, args...)
 	case config.CredentialTypeWorkloadIdentity:
 		return c.loginWithWorkloadIdentity(ctx)
@@ -149,13 +147,12 @@ func (c *client) login(ctx context.Context) error {
 
 // loginServicePrincipal performs az login with a service principal credential.
 func (c *client) loginServicePrincipal(ctx context.Context) error {
-	args := []string{
-		flagLogin,
+	args := c.baseArgs()
+	args = append(args,
 		flagServicePrincipal,
 		flagUsername, c.credential.Details.Azure.ClientID,
 		flagTenant, c.tenantID,
-	}
-	args = c.appendScopedLoginArgs(args)
+	)
 
 	if c.credential.Details.Azure.ClientSecret != "" {
 		return c.loginWithSecret(ctx, args)
@@ -235,16 +232,24 @@ func (c *client) loginWithWorkloadIdentity(ctx context.Context) error {
 		return errors.New("federated token is required for workload identity login")
 	}
 
-	args := []string{
-		flagLogin,
+	args := c.baseArgs()
+	args = append(args,
 		flagServicePrincipal,
 		flagUsername, c.credential.Details.Azure.ClientID,
 		flagTenant, c.tenantID,
 		flagFederatedToken, c.federatedToken,
-	}
-	args = c.appendScopedLoginArgs(args)
+	)
 
 	return az(ctx, args...)
+}
+
+// baseArgs returns the base arguments for the az login command,
+// including flags that are independent of the credential type.
+func (c *client) baseArgs() []string {
+	args := []string{cmdLogin}
+	args = appendIf(c.allowNoSubscriptions, args, flagAllowNoSubscriptions)
+	args = c.appendScopedLoginArgs(args)
+	return args
 }
 
 func (c *client) appendScopedLoginArgs(args []string) []string {
