@@ -20,17 +20,22 @@ var AzCtx = &cobra.Command{
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		loader := config.NewLoader()
 
+		// We purposely load the config before showing the TUI, so that we can
+		// reduce the time between the user making a selection and the context actually
+		// switching. The TUI should be snappy, and loading the config can take a
+		// few milliseconds, especially if there are many contexts or if the config file
+		// is on a slow disk.
+		store, err := loader.Load()
+		if err != nil {
+			return err
+		}
+
 		choice, err := tui.Run(loader, tui.ModeInteractive)
 		if err != nil {
 			return err
 		}
 		if choice == "" {
 			return nil
-		}
-
-		store, err := loader.Load()
-		if err != nil {
-			return err
 		}
 
 		switcher := newContextSwitcher()
