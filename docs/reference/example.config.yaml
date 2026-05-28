@@ -1,0 +1,44 @@
+apiVersion: azctx.lvlcn-t.dev/v1alpha1
+kind: Config
+tenants:
+  - name: dev
+    tenant:
+      id: 00000000-0000-0000-0000-000000000000
+
+credentials:
+  - name: personal
+    credential:
+      type: user
+
+  - name: sp-dev
+    credential:
+      type: service-principal
+      azure:
+        client-id: 00000000-0000-0000-0000-000000000000
+        client-secret: keyvault://my-vault.vault.azure.net/secrets/sp-dev-client-secret
+
+  - name: id-dev
+    credential:
+      type: workload-identity
+      azure:
+        client-id: 00000000-0000-0000-0000-000000000000
+      token:
+        source: oauth2
+        oauth2:
+          issuer: https://example.com/issuer
+          client-id: 00000000-0000-0000-0000-000000000000
+          scopes: [openid, profile, email]
+          redirect-uri: http://localhost:8400/callback
+
+contexts:
+  - name: dev/personal
+    context:
+      tenant: dev
+      credential: personal
+
+  - name: dev/id-dev
+    context:
+      tenant: dev
+      credential: id-dev
+
+current-context: dev/id-dev

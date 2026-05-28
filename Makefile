@@ -4,6 +4,7 @@ export GOEXPERIMENT := jsonv2
 
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "v0.0.0")
 LDFLAGS := -s -w -X main.version=$(VERSION)
+AZCTX := .tmp/azctx/config.yaml
 ARGS ?=
 
 .PHONY: help
@@ -13,9 +14,13 @@ help: ## Display this help
 	@echo "Targets:"
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-20s\033[0m- %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
+$(AZCTX):
+	@mkdir -p $(dir $@)
+	@cp docs/reference/example.config.yaml $@
+
 .PHONY: dev
-dev: build ## Build and run the CLI, you can pass subcommands using `make dev ARGS="subcommand args"`
-	@./bin/azctx $(ARGS)
+dev: $(AZCTX) build ## Build and run the CLI with the development config (.tmp/azctx/config.yaml) and optional arguments in ARGS
+	@AZCTX=$(AZCTX) ./bin/azctx $(ARGS)
 
 .PHONY: build
 build: ## Build the CLI binary

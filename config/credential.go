@@ -53,8 +53,8 @@ var ErrCredentialTypeRequired = errors.New("credential type is required")
 // CredentialDetails represents the details of an Azure credential.
 type CredentialDetails struct {
 	Type  CredentialType  `yaml:"type" json:"type"`
-	Azure AzureCredential `yaml:"azure" json:"azure"`
-	Token TokenDetails    `yaml:"token" json:"token"`
+	Azure AzureCredential `yaml:"azure,omitempty" json:"azure,omitzero"`
+	Token TokenDetails    `yaml:"token,omitempty" json:"token,omitzero"`
 }
 
 // AzureCredential represents Azure auth details for a credential.
