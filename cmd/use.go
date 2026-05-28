@@ -36,16 +36,11 @@ func newUseCmd() *cobra.Command {
 
 // run executes the use command.
 func (c *useCommand) run(cmd *cobra.Command, args []string) error {
-	store, err := c.loader.Load()
-	if err != nil {
-		return err
-	}
-
 	var name string
 	if len(args) > 0 {
 		name = args[0]
 	} else {
-		picked, pickErr := tui.Run(&store.Config, tui.ModeInteractive)
+		picked, pickErr := tui.Run(c.loader, tui.ModeInteractive)
 		if pickErr != nil {
 			return pickErr
 		}
@@ -53,6 +48,11 @@ func (c *useCommand) run(cmd *cobra.Command, args []string) error {
 			return nil
 		}
 		name = picked
+	}
+
+	store, err := c.loader.Load()
+	if err != nil {
+		return err
 	}
 
 	if err = c.switcher.switchContext(cmd.Context(), &store, name); err != nil {

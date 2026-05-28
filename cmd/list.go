@@ -15,15 +15,14 @@ type listCmd struct {
 
 // newListCmd lists all configured contexts.
 func newListCmd() *cobra.Command {
-	command := &listCmd{loader: config.NewLoader()}
-
+	c := &listCmd{loader: config.NewLoader()}
 	cmd := &cobra.Command{ //nolint:exhaustruct // Cobra command definition
 		Use:               "list",
 		Aliases:           []string{"get-contexts"},
 		Short:             "List all available Azure contexts",
 		Long:              "List all available contexts from the merged azctx config.",
 		Example:           "  azctx list\n  azctx list -o table\n  azctx list -o json",
-		RunE:              command.run,
+		RunE:              c.run,
 		DisableAutoGenTag: true,
 	}
 
@@ -33,16 +32,16 @@ func newListCmd() *cobra.Command {
 }
 
 // run executes the list command.
-func (command *listCmd) run(cmd *cobra.Command, _ []string) error {
-	store, err := command.loader.Load()
-	if err != nil {
-		return err
-	}
-
+func (c *listCmd) run(cmd *cobra.Command, _ []string) error {
 	// If no explicit -o flag, launch interactive TUI.
 	if !cmd.Flags().Changed("output") {
-		_, tuiErr := tui.Run(&store.Config, tui.ModeBrowse)
+		_, tuiErr := tui.Run(c.loader, tui.ModeBrowse)
 		return tuiErr
+	}
+
+	store, err := c.loader.Load()
+	if err != nil {
+		return err
 	}
 
 	format, err := outputFormat(cmd)

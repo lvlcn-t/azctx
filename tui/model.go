@@ -1,51 +1,70 @@
 package tui
 
 import (
-	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/lipgloss"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lvlcn-t/azctx/config"
 )
 
-type view int
+type appState int
 
 const (
-	viewList view = iota
-	viewDetail
+	stateSplash appState = iota
+	stateApp
 )
 
-// model is the unified TUI model for all invocation modes.
+const (
+	tabContexts    = 0
+	tabTenants     = 1
+	tabCredentials = 2
+	tabCount       = 3
+)
+
+// Layout constants for content sizing.
+const (
+	contentVerticalPadding   = 7  // title(1) + tab bar(3) + help(2) + spacing(1)
+	contentHorizontalPadding = 4  // left/right margin
+	minContentHeight         = 5  // minimum usable list height
+	minContentWidth          = 20 // minimum usable list width
+)
+
+// model is the top-level TUI model managing splash, tabs, and viewer.
 type model struct {
-	cfg      *config.Config
-	mode     Mode
-	view     view
-	list     list.Model
-	viewer   viewerModel
-	choice   string
-	width    int
-	height   int
-	quitting bool
+	state appState
+	mode  Mode
+
+	// Splash
+	splash splashModel
+
+	// App state (populated after config load)
+	activeTab   int
+	contexts    contextsTab
+	tenants     browseTab
+	credentials browseTab
+
+	// Viewer overlay
+	viewing bool
+	viewer  viewerModel
+
+	// Result
+	choice string
+
+	width, height int
+	quitting      bool
 }
 
-func newModel(cfg *config.Config, mode Mode) model {
-	items := buildItems(cfg)
-	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
-	l.Title = "azctx"
-	l.SetShowStatusBar(true)
-	l.SetShowHelp(true)
-	l.SetFilteringEnabled(true)
-	l.AdditionalShortHelpKeys = additionalKeys(mode)
-	l.AdditionalFullHelpKeys = l.AdditionalShortHelpKeys
+func newModel(loader config.Loader, mode Mode) model {
 	return model{
-		cfg:  cfg,
-		mode: mode,
-		view: viewList,
-		list: l,
+		state:  stateSplash,
+		mode:   mode,
+		splash: newSplash(loader),
 	}
 }
 
 //nolint:gocritic // Init must be a value receiver to satisfy tea.Model.
 func (m model) Init() tea.Cmd {
-	return nil
+	return m.splash.Init()
 }
 
 //nolint:gocritic // Update must be a value receiver to satisfy tea.Model.
@@ -54,70 +73,114 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.list.SetWidth(msg.Width)
-		m.list.SetHeight(msg.Height)
-		return m, nil
-	case tea.KeyMsg:
-		switch m.view {
-		case viewList:
-			return m.updateList(msg)
-		case viewDetail:
-			return m.updateDetail(msg)
+		m.splash.width = msg.Width
+		m.splash.height = msg.Height
+		if m.state == stateApp {
+			m.resizeTabs()
 		}
+		return m, nil
+
+	case configLoadedMsg:
+		m.splash.configDone = true
+		m.splash.result = &msg
+		if m.splash.ready() {
+			return m.transitionToApp()
+		}
+		return m, nil
+
+	case splashDoneMsg:
+		m.splash.timerDone = true
+		if m.splash.ready() {
+			return m.transitionToApp()
+		}
+		return m, nil
 	}
 
-	if m.view == viewList {
-		var cmd tea.Cmd
-		m.list, cmd = m.list.Update(msg)
-		return m, cmd
+	if m.state == stateSplash {
+		return m, nil
 	}
+
+	// App state message routing.
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		if m.viewing {
+			return m.updateViewer(keyMsg)
+		}
+		return m.updateApp(keyMsg)
+	}
+
+	// Pass non-key messages to the active tab.
+	cmd := m.activeTabUpdateMsg(msg)
+	return m, cmd
+}
+
+//nolint:gocritic // transitionToApp must be a value receiver for bubbletea's Elm architecture.
+func (m model) transitionToApp() (tea.Model, tea.Cmd) {
+	if m.splash.result.err != nil {
+		m.quitting = true
+		return m, tea.Quit
+	}
+
+	cfg := &m.splash.result.store.Config
+	contentW, contentH := m.contentSize()
+
+	m.contexts = newContextsTab(cfg, m.mode, contentW, contentH)
+	m.tenants = newTenantsTab(cfg, contentW, contentH)
+	m.credentials = newCredentialsTab(cfg, contentW, contentH)
+	m.state = stateApp
 	return m, nil
 }
 
-//nolint:gocritic // updateList must be a value receiver for bubbletea's Elm architecture.
-func (m model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.list.FilterState() == list.Filtering {
-		var cmd tea.Cmd
-		m.list, cmd = m.list.Update(msg)
-		return m, cmd
-	}
-
+//nolint:gocritic // updateApp must be a value receiver for bubbletea's Elm architecture.
+func (m model) updateApp(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch keyName(msg.String()) {
-	case keyEnter:
-		item, ok := m.list.SelectedItem().(*contextItem)
-		if !ok {
-			return m, nil
-		}
-		if m.mode == ModeInteractive {
-			m.choice = item.name
-			m.quitting = true
-			return m, tea.Quit
-		}
-		// ModeBrowse: open detail view
-		m.viewer = newViewer(item)
-		m.view = viewDetail
+	case keyTab, keyRight:
+		m.activeTab = (m.activeTab + 1) % tabCount
 		return m, nil
-	case keyView:
-		if item, ok := m.list.SelectedItem().(*contextItem); ok {
-			m.viewer = newViewer(item)
-			m.view = viewDetail
-		}
+	case keyShiftTab, keyLeft:
+		m.activeTab = (m.activeTab - 1 + tabCount) % tabCount
 		return m, nil
 	case keyQuit, keyCtrlC:
 		m.quitting = true
 		return m, tea.Quit
 	}
 
-	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
-	return m, cmd
+	switch m.activeTab {
+	case tabContexts:
+		selected, content, cmd := m.contexts.Update(msg)
+		if selected != "" {
+			m.choice = selected
+			m.quitting = true
+			return m, tea.Quit
+		}
+		if content != nil {
+			m.viewing = true
+			m.viewer = newViewer(content, m.width)
+		}
+		return m, cmd
+	case tabTenants:
+		content, cmd := m.tenants.Update(msg)
+		if content != nil {
+			m.viewing = true
+			m.viewer = newViewer(content, m.width)
+		}
+		return m, cmd
+	case tabCredentials:
+		content, cmd := m.credentials.Update(msg)
+		if content != nil {
+			m.viewing = true
+			m.viewer = newViewer(content, m.width)
+		}
+		return m, cmd
+	}
+
+	return m, nil
 }
 
-//nolint:gocritic // updateDetail must be a value receiver for bubbletea's Elm architecture.
-func (m model) updateDetail(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+//nolint:gocritic // updateViewer must be a value receiver for bubbletea's Elm architecture.
+func (m model) updateViewer(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch keyName(msg.String()) {
 	case keyEsc, keyQuit:
-		m.view = viewList
+		m.viewing = false
 		return m, nil
 	case keyCtrlC:
 		m.quitting = true
@@ -126,16 +189,73 @@ func (m model) updateDetail(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m *model) activeTabUpdateMsg(msg tea.Msg) tea.Cmd {
+	switch m.activeTab {
+	case tabContexts:
+		return m.contexts.UpdateMsg(msg)
+	case tabTenants:
+		return m.tenants.UpdateMsg(msg)
+	case tabCredentials:
+		return m.credentials.UpdateMsg(msg)
+	}
+	return nil
+}
+
+func (m *model) resizeTabs() {
+	w, h := m.contentSize()
+	m.contexts.SetSize(w, h)
+	m.tenants.SetSize(w, h)
+	m.credentials.SetSize(w, h)
+}
+
+func (m *model) contentSize() (width, height int) {
+	h := m.height - contentVerticalPadding
+	if h < minContentHeight {
+		h = minContentHeight
+	}
+	w := m.width - contentHorizontalPadding
+	if w < minContentWidth {
+		w = minContentWidth
+	}
+	return w, h
+}
+
 //nolint:gocritic // View must be a value receiver to satisfy tea.Model.
 func (m model) View() string {
 	if m.quitting {
 		return ""
 	}
 
-	switch m.view {
-	case viewDetail:
-		return m.viewer.View()
-	default:
-		return m.list.View()
+	if m.state == stateSplash {
+		return m.splash.View()
 	}
+
+	if m.viewing {
+		return m.viewer.View()
+	}
+
+	// Title
+	cloud := splashCloudStyle.Render("☁")
+	bolt := splashBoltStyle.Render("⚡")
+	name := splashNameStyle.Render("azctx")
+	title := " " + cloud + " " + bolt + " " + name
+
+	// Tabs
+	tabs := renderTabs(m.activeTab, m.width)
+
+	// Active tab content
+	var content string
+	switch m.activeTab {
+	case tabContexts:
+		content = m.contexts.View()
+	case tabTenants:
+		content = m.tenants.View()
+	case tabCredentials:
+		content = m.credentials.View()
+	}
+
+	// Help bar
+	help := helpStyle.Render(" enter: select \u2022 v: view \u2022 tab/shift+tab: switch tab \u2022 /: filter \u2022 q: quit")
+
+	return lipgloss.JoinVertical(lipgloss.Left, title, tabs, content, help)
 }

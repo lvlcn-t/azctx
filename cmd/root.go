@@ -19,18 +19,18 @@ var AzCtx = &cobra.Command{
 	SilenceUsage:      true,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		loader := config.NewLoader()
+
+		choice, err := tui.Run(loader, tui.ModeInteractive)
+		if err != nil {
+			return err
+		}
+		if choice == "" {
+			return nil
+		}
+
 		store, err := loader.Load()
 		if err != nil {
 			return err
-		}
-
-		choice, err := tui.Run(&store.Config, tui.ModeInteractive)
-		if err != nil {
-			return err
-		}
-
-		if choice == "" {
-			return nil
 		}
 
 		switcher := newContextSwitcher()

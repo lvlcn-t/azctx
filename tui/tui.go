@@ -7,7 +7,7 @@ import (
 	"github.com/lvlcn-t/azctx/config"
 )
 
-// Mode determines the behavior of the TUI on selection.
+// Mode determines the behavior of the TUI on context selection.
 type Mode int
 
 const (
@@ -18,16 +18,23 @@ const (
 )
 
 // Run launches the TUI and returns the selected context name (empty if canceled or browse mode).
-func Run(cfg *config.Config, mode Mode) (string, error) {
-	m := newModel(cfg, mode)
+func Run(loader config.Loader, mode Mode) (string, error) {
+	m := newModel(loader, mode)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	result, err := p.Run()
 	if err != nil {
 		return "", fmt.Errorf("run tui: %w", err)
 	}
+
 	final, ok := result.(model)
 	if !ok {
 		return "", nil
 	}
+
+	// If config loading failed, surface the error.
+	if final.splash.result != nil && final.splash.result.err != nil {
+		return "", final.splash.result.err
+	}
+
 	return final.choice, nil
 }
