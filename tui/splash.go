@@ -9,7 +9,7 @@ import (
 	"github.com/lvlcn-t/azctx/config"
 )
 
-const splashMinDuration = 1000 * time.Millisecond
+const splashMinDuration = 500 * time.Millisecond
 
 // Splash box size bounds.
 const (
@@ -82,8 +82,10 @@ func (m splashModel) View() string {
 	// Description (centered, dim)
 	desc := splashDimStyle.Render("Switch Azure tenants & subscriptions fast")
 
-	// Centered top content
+	// Centered middle content
 	innerWidth := boxWidth - splashBoxPadH
+	innerHeight := boxHeight - splashBoxPadV
+
 	top := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Center).
 		Render(lipgloss.JoinVertical(lipgloss.Center, logo, "", desc))
 
@@ -91,15 +93,18 @@ func (m splashModel) View() string {
 	statusRight := lipgloss.NewStyle().Width(innerWidth).Align(lipgloss.Right).
 		Render(splashDimStyle.Render("Loading config…"))
 
-	// Fill vertical gap between top content and status
+	// Fill vertical space around the main content, keeping status at the bottom-right
 	topLines := lipgloss.Height(top)
-	availableInner := boxHeight - splashBoxPadV
-	gap := availableInner - topLines - 1
-	if gap < 1 {
-		gap = 1
-	}
+	statusLines := lipgloss.Height(statusRight)
 
-	inner := top + strings.Repeat("\n", gap) + statusRight
+	remaining := max(innerHeight-topLines-statusLines, 0)
+	topGap := remaining / 2
+	bottomGap := remaining - topGap
+
+	inner := strings.Repeat("\n", topGap) +
+		top +
+		strings.Repeat("\n", bottomGap) +
+		statusRight
 
 	box := splashBoxStyle.Width(boxWidth).Render(inner)
 
