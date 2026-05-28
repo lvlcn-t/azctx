@@ -1,6 +1,12 @@
 package cmd
 
-import "github.com/spf13/cobra"
+import (
+	"fmt"
+
+	"github.com/lvlcn-t/azctx/config"
+	"github.com/lvlcn-t/azctx/tui"
+	"github.com/spf13/cobra"
+)
 
 // AzCtx is the root command for the azctx CLI tool.
 var AzCtx = &cobra.Command{
@@ -11,6 +17,30 @@ var AzCtx = &cobra.Command{
 	Version:           Version,
 	DisableAutoGenTag: true,
 	SilenceUsage:      true,
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		loader := config.NewLoader()
+		store, err := loader.Load()
+		if err != nil {
+			return err
+		}
+
+		choice, err := tui.Run(&store.Config, tui.ModeInteractive)
+		if err != nil {
+			return err
+		}
+
+		if choice == "" {
+			return nil
+		}
+
+		switcher := newContextSwitcher()
+		if err = switcher.switchContext(cmd.Context(), &store, choice); err != nil {
+			return err
+		}
+
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Switched to context %q.\n", choice)
+		return err
+	},
 }
 
 func init() { //nolint:gochecknoinits // This is the standard way to set up Cobra commands

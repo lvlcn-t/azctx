@@ -43,9 +43,11 @@ func TestUseHappyPath(t *testing.T) {
 
 	command := &useCommand{
 		loader: config.NewLoader(),
-		writer: config.NewWriter(),
-		az: func(ctx context.Context) (az.CLI, error) {
-			return mock, nil
+		switcher: &azContextSwitcher{
+			writer: config.NewWriter(),
+			az: func(ctx context.Context) (az.CLI, error) {
+				return mock, nil
+			},
 		},
 	}
 
@@ -68,31 +70,21 @@ func TestUseContextNotFound(t *testing.T) {
 
 	var mock *az.CLIMock
 	mock = &az.CLIMock{
-		WithTenantFunc: func(tenantID string) az.CLI {
-			return mock
-		},
-		WithCredentialFunc: func(credential *config.Credential) az.CLI {
-			return mock
-		},
-		WithSubscriptionFunc: func(subscriptionID string) az.CLI {
-			return mock
-		},
-		AllowNoSubscriptionsFunc: func(allow bool) az.CLI {
-			return mock
-		},
-		WithFederatedTokenFunc: func(string) az.CLI {
-			return mock
-		},
-		LoginFunc: func(ctx context.Context) error {
-			return nil
-		},
+		WithTenantFunc:           func(string) az.CLI { return mock },
+		WithCredentialFunc:       func(*config.Credential) az.CLI { return mock },
+		WithSubscriptionFunc:     func(string) az.CLI { return mock },
+		AllowNoSubscriptionsFunc: func(bool) az.CLI { return mock },
+		WithFederatedTokenFunc:   func(string) az.CLI { return mock },
+		LoginFunc:                func(context.Context) error { return nil },
 	}
 
 	command := &useCommand{
 		loader: config.NewLoader(),
-		writer: config.NewWriter(),
-		az: func(ctx context.Context) (az.CLI, error) {
-			return mock, nil
+		switcher: &azContextSwitcher{
+			writer: config.NewWriter(),
+			az: func(ctx context.Context) (az.CLI, error) {
+				return mock, nil
+			},
 		},
 	}
 
@@ -108,9 +100,11 @@ func TestUseAZClientFactoryError(t *testing.T) {
 	sentinel := errors.New("new client failed")
 	command := &useCommand{
 		loader: config.NewLoader(),
-		writer: config.NewWriter(),
-		az: func(ctx context.Context) (az.CLI, error) {
-			return nil, sentinel
+		switcher: &azContextSwitcher{
+			writer: config.NewWriter(),
+			az: func(ctx context.Context) (az.CLI, error) {
+				return nil, sentinel
+			},
 		},
 	}
 
@@ -167,15 +161,17 @@ func TestUseOAuth2TokenAcquisition(t *testing.T) {
 
 	command := &useCommand{
 		loader: config.NewLoader(),
-		writer: config.NewWriter(),
-		az:     func(context.Context) (az.CLI, error) { return mock, nil },
-		wif: func(_ context.Context, cfg config.TokenDetails, _ string) (wif.Provider, error) {
-			assert.Equal(t, config.TokenSourceOAuth2, cfg.Source)
-			return &wif.ProviderMock{
-				AcquireTokenFunc: func(context.Context, ...wif.AcquireOption) (string, bool, error) {
-					return fakeToken, false, nil
-				},
-			}, nil
+		switcher: &azContextSwitcher{
+			writer: config.NewWriter(),
+			az:     func(context.Context) (az.CLI, error) { return mock, nil },
+			wif: func(_ context.Context, cfg config.TokenDetails, _ string) (wif.Provider, error) {
+				assert.Equal(t, config.TokenSourceOAuth2, cfg.Source)
+				return &wif.ProviderMock{
+					AcquireTokenFunc: func(context.Context, ...wif.AcquireOption) (string, bool, error) {
+						return fakeToken, false, nil
+					},
+				}, nil
+			},
 		},
 	}
 

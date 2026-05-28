@@ -11,7 +11,7 @@ import (
 func TestListText(t *testing.T) {
 	writeConfigForTest(t, baseConfig())
 
-	stdout, _, err := executeCommand(t, newListCmd())
+	stdout, _, err := executeCommand(t, newListCmd(), "-o", "text")
 	require.NoError(t, err)
 
 	assert.Contains(t, stdout, "* dev\n")
@@ -21,7 +21,7 @@ func TestListText(t *testing.T) {
 func TestListEmpty(t *testing.T) {
 	writeConfigForTest(t, &config.Config{})
 
-	stdout, _, err := executeCommand(t, newListCmd())
+	stdout, _, err := executeCommand(t, newListCmd(), "-o", "text")
 	require.NoError(t, err)
 	assert.Empty(t, stdout)
 }

@@ -16,6 +16,10 @@ When you run 'azctx use', azctx updates the current context in config and
 also syncs the Azure CLI session by calling 'az login' and 'az account set'.
 
 
+```
+azctx [flags]
+```
+
 ### Examples
 
 ```

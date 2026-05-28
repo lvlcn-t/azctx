@@ -5,6 +5,7 @@ import (
 
 	"github.com/lvlcn-t/azctx/config"
 	"github.com/lvlcn-t/azctx/output"
+	"github.com/lvlcn-t/azctx/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -36,6 +37,12 @@ func (command *listCmd) run(cmd *cobra.Command, _ []string) error {
 	store, err := command.loader.Load()
 	if err != nil {
 		return err
+	}
+
+	// If no explicit -o flag, launch interactive TUI.
+	if !cmd.Flags().Changed("output") {
+		_, tuiErr := tui.Run(&store.Config, tui.ModeBrowse)
+		return tuiErr
 	}
 
 	format, err := outputFormat(cmd)

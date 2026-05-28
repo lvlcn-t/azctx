@@ -1,32 +1,23 @@
 package cmd
 
 import (
-	"context"
-	"errors"
 	"fmt"
-	"path/filepath"
 
-	"github.com/lvlcn-t/azctx/az"
 	"github.com/lvlcn-t/azctx/config"
-	"github.com/lvlcn-t/azctx/wif"
-	"github.com/lvlcn-t/azctx/wif/factory"
+	"github.com/lvlcn-t/azctx/tui"
 	"github.com/spf13/cobra"
 )
 
 type useCommand struct {
-	az     func(ctx context.Context) (az.CLI, error)
-	wif    factory.TokenProvider
-	loader config.Loader
-	writer config.Writer
+	switcher contextSwitcher
+	loader   config.Loader
 }
 
 // newUseCmd switches the active context and syncs Azure CLI state.
 func newUseCmd() *cobra.Command {
 	command := &useCommand{
-		loader: config.NewLoader(),
-		writer: config.NewWriter(),
-		az:     az.NewClient,
-		wif:    factory.NewTokenProvider,
+		switcher: newContextSwitcher(),
+		loader:   config.NewLoader(),
 	}
 
 	useCmd := &cobra.Command{ //nolint:exhaustruct // Cobra command definition
@@ -37,7 +28,7 @@ func newUseCmd() *cobra.Command {
 		Example: `  azctx use dev
   azctx use prod`,
 		RunE: command.run,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 	}
 
 	return useCmd
@@ -45,71 +36,29 @@ func newUseCmd() *cobra.Command {
 
 // run executes the use command.
 func (c *useCommand) run(cmd *cobra.Command, args []string) error {
-	azcli, err := c.az(cmd.Context())
-	if err != nil {
-		return fmt.Errorf("create az client: %w", err)
-	}
-
 	store, err := c.loader.Load()
 	if err != nil {
 		return err
 	}
 
-	resolved, err := store.Resolve(args[0])
-	if err != nil {
+	var name string
+	if len(args) > 0 {
+		name = args[0]
+	} else {
+		picked, pickErr := tui.Run(&store.Config, tui.ModeInteractive)
+		if pickErr != nil {
+			return pickErr
+		}
+		if picked == "" {
+			return nil
+		}
+		name = picked
+	}
+
+	if err = c.switcher.switchContext(cmd.Context(), &store, name); err != nil {
 		return err
 	}
 
-	var token string
-	var cached bool
-	var provider wif.Provider
-	if resolved.Credential.Details.Type == config.CredentialTypeWorkloadIdentity {
-		cacheDir := filepath.Dir(store.PathForCurrentContext())
-		provider, err = c.wif(cmd.Context(), resolved.Credential.Details.Token, cacheDir)
-		if err != nil {
-			return fmt.Errorf("create token provider: %w", err)
-		}
-
-		token, cached, err = provider.AcquireToken(cmd.Context())
-		if err != nil {
-			return fmt.Errorf("acquire federated token: %w", err)
-		}
-	}
-
-	loginErr := azcli.WithTenant(resolved.Tenant.Details.ID).
-		WithCredential(&resolved.Credential).
-		WithSubscription(resolved.Subscription).
-		AllowNoSubscriptions(resolved.AllowNoSubscriptions).
-		WithFederatedToken(token).
-		Login(cmd.Context())
-
-	// Retry once with a fresh token if login failed due to az login and we used a cached token.
-	if errors.Is(loginErr, az.ErrLogin) && cached {
-		token, _, err = provider.AcquireToken(cmd.Context(), wif.WithForceRefresh())
-		if err != nil {
-			return fmt.Errorf("az login: %w (refresh also failed: %w)", loginErr, err)
-		}
-
-		loginErr = azcli.WithTenant(resolved.Tenant.Details.ID).
-			WithCredential(&resolved.Credential).
-			WithSubscription(resolved.Subscription).
-			AllowNoSubscriptions(resolved.AllowNoSubscriptions).
-			WithFederatedToken(token).
-			Login(cmd.Context())
-	}
-
-	if loginErr != nil {
-		return fmt.Errorf("az login: %w", loginErr)
-	}
-
-	path := store.PathForCurrentContext()
-	cfg := store.FileConfig(path)
-	cfg.CurrentContext = resolved.Name
-
-	if err = c.writer.Write(path, &cfg); err != nil {
-		return err
-	}
-
-	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Switched to context %q.\n", resolved.Name)
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Switched to context %q.\n", name)
 	return err
 }
