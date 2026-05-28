@@ -9,19 +9,6 @@ import (
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.yaml.in/yaml/v4"
-)
-
-var (
-	tenantCorp = Tenant{Name: "corp", Details: TenantDetails{ID: "tenant-1"}}
-	tenantPlat = Tenant{Name: "platform", Details: TenantDetails{ID: "tenant-2"}}
-
-	credUser = Credential{Name: "cred-a", Details: CredentialDetails{Type: CredentialTypeUser}}
-	credMI   = Credential{Name: "cred-b", Details: CredentialDetails{Type: CredentialTypeManagedIdentity}}
-	credOIDC = Credential{Name: "cred-c", Details: CredentialDetails{Type: CredentialTypeWorkloadIdentity}}
-
-	devContext  = Context{Name: "dev", Details: ContextDetails{Tenant: tenantCorp.Name, Credential: credUser.Name}}
-	prodContext = Context{Name: "prod", Details: ContextDetails{Tenant: tenantPlat.Name, Credential: credMI.Name, Subscription: "sub-prod"}}
 )
 
 func TestExpandPath(t *testing.T) {
@@ -95,52 +82,51 @@ func TestLoaderResolvePaths(t *testing.T) {
 
 func TestLoaderLoadMergesWithFirstWins(t *testing.T) {
 	fs := afero.NewMemMapFs()
-	pathOne := filepath.Clean("/tmp/one.yaml")
-	pathTwo := filepath.Clean("/tmp/two.yaml")
-	loader := Loader{fsys: fs, env: pathOne + string(os.PathListSeparator) + pathTwo}
+	path1 := filepath.Clean("/tmp/one.yaml")
+	path2 := filepath.Clean("/tmp/two.yaml")
+	loader := Loader{fsys: fs, env: path1 + string(os.PathListSeparator) + path2}
 
-	cfgOne := Config{
-		CurrentContext: devContext.Name,
-		Tenants:        []Tenant{tenantCorp},
-		Credentials:    []Credential{credUser},
-		Contexts:       []Context{devContext},
-	}
-	writeConfigYAML(t, fs, pathOne, &cfgOne)
+	cfg1 := newTestConfig(t).
+		withTenant("corp").
+		withUserCredential("ci").
+		withContext("dev", "corp", "ci").
+		withCurrentContext("dev").
+		write(fs, path1).
+		build()
 
-	cfgTwoTenantCorp := Tenant{Name: "corp", Details: TenantDetails{ID: "tenant-2"}}
-	cfgTwoTenantPlat := Tenant{Name: "platform", Details: TenantDetails{ID: "tenant-3"}}
-
-	cfgTwo := Config{
-		CurrentContext: prodContext.Name,
-		Tenants:        []Tenant{cfgTwoTenantCorp, cfgTwoTenantPlat},
-		Credentials:    []Credential{credMI, credOIDC},
-		Contexts:       []Context{devContext, prodContext},
-	}
-	writeConfigYAML(t, fs, pathTwo, &cfgTwo)
+	newTestConfig(t).
+		withTenant("corp").
+		withTenant("platform").
+		withUserCredential("mi").
+		withWIFCredential("wif").
+		withContext("dev", "corp", "ci").
+		withContext("prod", "platform", "wif").
+		write(fs, path2)
 
 	store, err := loader.Load()
 	require.NoError(t, err)
 
-	assert.Equal(t, []string{pathOne, pathTwo}, store.Paths)
-	assert.Equal(t, pathOne, store.WritePath)
-	assert.Equal(t, devContext.Name, store.Config.CurrentContext)
+	assert.Equal(t, []string{path1, path2}, store.Paths)
+	assert.Equal(t, path1, store.WritePath)
+	assert.Equal(t, "dev", store.Config.CurrentContext)
 
-	tenant, ok := store.Config.TenantByName(tenantCorp.Name)
+	tenant, ok := store.Config.TenantByName("corp")
 	require.True(t, ok)
-	assert.Equal(t, "tenant-1", tenant.Details.ID)
+	t1, _ := cfg1.TenantByName("corp")
+	assert.Equal(t, t1.Details.ID, tenant.Details.ID)
 
-	_, ok = store.Config.TenantByName(tenantPlat.Name)
+	_, ok = store.Config.TenantByName("platform")
 	assert.True(t, ok)
 
-	contextValue, ok := store.Config.ContextByName(devContext.Name)
+	contextValue, ok := store.Config.ContextByName("dev")
 	require.True(t, ok)
 	assert.Empty(t, contextValue.Details.Subscription)
 
-	assert.Equal(t, pathOne, store.PathForCurrentContext())
-	assert.Equal(t, pathOne, store.PathForTenant(tenantCorp.Name))
-	assert.Equal(t, pathTwo, store.PathForTenant(cfgTwoTenantPlat.Name))
-	assert.Equal(t, pathOne, store.PathForContext(devContext.Name))
-	assert.Equal(t, pathTwo, store.PathForContext(prodContext.Name))
+	assert.Equal(t, path1, store.PathForCurrentContext())
+	assert.Equal(t, path1, store.PathForTenant("corp"))
+	assert.Equal(t, path2, store.PathForTenant("platform"))
+	assert.Equal(t, path1, store.PathForContext("dev"))
+	assert.Equal(t, path2, store.PathForContext("prod"))
 }
 
 func TestLoaderLoadMissingFileUsesFirstPathAsWritePath(t *testing.T) {
@@ -174,11 +160,13 @@ func TestLoaderRead(t *testing.T) {
 	loader := Loader{fsys: fs}
 
 	path := filepath.Clean("/tmp/config.yaml")
-	cfg := Config{
-		CurrentContext: devContext.Name,
-		Tenants:        []Tenant{tenantCorp},
-	}
-	writeConfigYAML(t, fs, path, &cfg)
+	cfg := newTestConfig(t).
+		withTenant("corp").
+		withUserCredential("personal").
+		withContext("dev", "corp", "personal").
+		withCurrentContext("dev").
+		write(fs, path).
+		build()
 
 	got, err := loader.Read(path)
 	require.NoError(t, err)
@@ -187,7 +175,7 @@ func TestLoaderRead(t *testing.T) {
 
 	missing, err := loader.Read(filepath.Clean("/tmp/missing.yaml"))
 	require.NoError(t, err)
-	assert.Equal(t, Config{}, missing)
+	assert.Equal(t, Config{APIVersion: APIVersion, Kind: Kind}, missing)
 }
 
 func TestWriterWriteAndLoaderReadRoundTrip(t *testing.T) {
@@ -196,12 +184,12 @@ func TestWriterWriteAndLoaderReadRoundTrip(t *testing.T) {
 	loader := Loader{fsys: fs}
 
 	path := filepath.Clean("/tmp/nested/config.yaml")
-	input := Config{
-		CurrentContext: devContext.Name,
-		Tenants:        []Tenant{tenantCorp},
-		Credentials:    []Credential{credMI},
-		Contexts:       []Context{{Name: devContext.Name, Details: ContextDetails{Tenant: tenantCorp.Name, Credential: credMI.Name, Subscription: "sub-1"}}},
-	}
+	input := newTestConfig(t).
+		withTenant("corp").
+		withUserCredential("mi").
+		withContext("dev", "corp", "mi").
+		withCurrentContext("dev").
+		build()
 
 	err := writer.Write(path, &input)
 	require.NoError(t, err)
@@ -223,8 +211,8 @@ func TestLoaderReadConfigFileNotExist(t *testing.T) {
 	loader := Loader{fsys: afero.NewMemMapFs()}
 
 	got, err := loader.readConfig(filepath.Clean("/tmp/missing.yaml"))
-	require.NoError(t, err)
-	assert.Equal(t, Config{}, got)
+	require.ErrorIs(t, err, errNotFound)
+	assert.Equal(t, Config{APIVersion: APIVersion, Kind: Kind}, got)
 }
 
 func TestLoaderReadConfigReturnsReadError(t *testing.T) {
@@ -233,17 +221,4 @@ func TestLoaderReadConfigReturnsReadError(t *testing.T) {
 	_, err := loader.readConfig(filepath.Clean("/dev/null/config.yaml"))
 	require.Error(t, err)
 	assert.False(t, errors.Is(err, os.ErrNotExist))
-}
-
-func writeConfigYAML(t *testing.T, fs afero.Fs, path string, cfg *Config) {
-	t.Helper()
-
-	const (
-		dirMode  = 0o700
-		fileMode = 0o600
-	)
-	encoded, err := yaml.Marshal(cfg)
-	require.NoError(t, err)
-	require.NoError(t, fs.MkdirAll(filepath.Dir(path), dirMode))
-	require.NoError(t, afero.WriteFile(fs, path, encoded, fileMode))
 }

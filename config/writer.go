@@ -31,8 +31,8 @@ func (w *Writer) Write(path string, cfg *Config) error {
 		cfg = &Config{}
 	}
 
-	cfg.APIVersion = cmp.Or(cfg.APIVersion, apiVersion)
-	cfg.Kind = cmp.Or(cfg.Kind, kind)
+	cfg.APIVersion = cmp.Or(cfg.APIVersion, APIVersion)
+	cfg.Kind = cmp.Or(cfg.Kind, Kind)
 
 	const dirMode fs.FileMode = 0o700
 	parent := filepath.Dir(path)

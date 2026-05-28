@@ -26,7 +26,10 @@ type Loader struct {
 	env  string
 }
 
-var errEmptyConfig = errors.New("config is empty")
+var (
+	errEmptyConfig = errors.New("config is empty")
+	errNotFound    = errors.New("config not found")
+)
 
 func NewLoader() Loader {
 	return Loader{
@@ -43,7 +46,7 @@ func (l *Loader) Load() (Store, error) {
 	}
 
 	loaded := Store{
-		Config:      Config{},
+		Config:      Config{APIVersion: APIVersion, Kind: Kind},
 		Paths:       paths,
 		fileConfigs: make(map[string]Config, len(paths)),
 		sources: sourceIndex{
@@ -57,6 +60,8 @@ func (l *Loader) Load() (Store, error) {
 		cfg, err := l.readConfig(path)
 		switch {
 		case errors.Is(err, errEmptyConfig):
+			continue
+		case errors.Is(err, errNotFound):
 			continue
 		case err != nil:
 			return Store{}, err
@@ -77,13 +82,17 @@ func (l *Loader) Load() (Store, error) {
 // Read reads a single azctx config file without merge behavior.
 func (l *Loader) Read(path string) (Config, error) {
 	cfg, err := l.readConfig(path)
-	if err != nil && !errors.Is(err, errEmptyConfig) {
+	switch {
+	case errors.Is(err, errEmptyConfig) || errors.Is(err, errNotFound):
+		return cfg, nil
+	case err != nil:
 		return Config{}, err
 	}
 
 	return cfg, nil
 }
 
+// DefaultPath returns the default config path for the current user.
 func (l *Loader) DefaultPath() (string, error) {
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
 		return filepath.Join(xdg, configDir, configFile), nil
@@ -98,9 +107,10 @@ func (l *Loader) DefaultPath() (string, error) {
 }
 
 func (l *Loader) readConfig(path string) (Config, error) {
+	cfg := Config{APIVersion: APIVersion, Kind: Kind}
 	raw, err := afero.ReadFile(l.fsys, path)
 	if errors.Is(err, fs.ErrNotExist) {
-		return Config{}, nil
+		return cfg, errNotFound
 	}
 
 	if err != nil {
@@ -108,16 +118,15 @@ func (l *Loader) readConfig(path string) (Config, error) {
 	}
 
 	if len(bytes.TrimSpace(raw)) == 0 {
-		return Config{}, errEmptyConfig
+		return cfg, errEmptyConfig
 	}
 
-	var cfg Config
 	if err := yaml.Unmarshal(raw, &cfg); err != nil {
 		return Config{}, fmt.Errorf("parse config %q: %w", path, err)
 	}
 
-	cfg.APIVersion = cmp.Or(cfg.APIVersion, apiVersion)
-	cfg.Kind = cmp.Or(cfg.Kind, kind)
+	cfg.APIVersion = cmp.Or(cfg.APIVersion, APIVersion)
+	cfg.Kind = cmp.Or(cfg.Kind, Kind)
 
 	return cfg, nil
 }

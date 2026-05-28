@@ -7,6 +7,11 @@ import (
 	"github.com/lvlcn-t/azctx/semver"
 )
 
+const (
+	APIVersion = "azctx.lvlcn-t.dev/v1alpha1"
+	Kind       = "Config"
+)
+
 // Config is the root azctx configuration document.
 type Config struct {
 	APIVersion     semver.Version `yaml:"apiVersion" json:"apiVersion"`

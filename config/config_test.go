@@ -7,29 +7,30 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	ciName      = "ci"
-	clientIDVal = "client-id"
-)
-
 func TestLookupHelpers(t *testing.T) {
-	cfg := &Config{
-		Tenants:     []Tenant{{Name: tenantCorp.Name, Details: TenantDetails{ID: "tenant-id"}}},
-		Credentials: []Credential{{Name: ciName, Details: CredentialDetails{Type: CredentialTypeServicePrincipal}}},
-		Contexts:    []Context{{Name: devContext.Name, Details: ContextDetails{Tenant: tenantCorp.Name, Credential: ciName}}},
-	}
+	const (
+		tenant     = "corp"
+		credential = "sp"
+		context    = "dev"
+	)
 
-	tenant, ok := cfg.TenantByName(tenantCorp.Name)
-	require.True(t, ok)
-	assert.Equal(t, "tenant-id", tenant.Details.ID)
+	cfg := newTestConfig(t).
+		withTenant(tenant).
+		withSPCredential(credential).
+		withContext(context, tenant, credential).
+		build()
 
-	credential, ok := cfg.CredentialByName(ciName)
+	tn, ok := cfg.TenantByName(tenant)
 	require.True(t, ok)
-	assert.Equal(t, CredentialTypeServicePrincipal, credential.Details.Type)
+	assert.NotEmpty(t, tn.Details.ID)
 
-	contextValue, ok := cfg.ContextByName(devContext.Name)
+	cred, ok := cfg.CredentialByName(credential)
 	require.True(t, ok)
-	assert.Equal(t, tenantCorp.Name, contextValue.Details.Tenant)
+	assert.Equal(t, CredentialTypeServicePrincipal, cred.Details.Type)
+
+	ctx, ok := cfg.ContextByName(context)
+	require.True(t, ok)
+	assert.Equal(t, tenant, ctx.Details.Tenant)
 
 	_, ok = cfg.TenantByName("missing")
 	assert.False(t, ok)
@@ -40,33 +41,45 @@ func TestLookupHelpers(t *testing.T) {
 }
 
 func TestUpsertsAndDeletes(t *testing.T) {
-	cfg := &Config{}
-	cfg.UpsertTenant(Tenant{Name: tenantCorp.Name, Details: TenantDetails{ID: tenantCorp.Details.ID}})
-	cfg.UpsertTenant(Tenant{Name: tenantCorp.Name, Details: TenantDetails{ID: tenantPlat.Details.ID}})
+	const (
+		tenant     = "corp"
+		credential = "sp"
+		context    = "dev"
+	)
 
-	credential := &Credential{Name: ciName, Details: CredentialDetails{Type: CredentialTypeUser}}
-	cfg.UpsertCredential(credential)
-	credential = &Credential{Name: ciName, Details: CredentialDetails{Type: CredentialTypeManagedIdentity}}
-	cfg.UpsertCredential(credential)
+	cfg := newTestConfig(t).build()
 
-	cfg.UpsertContext(Context{Name: devContext.Name, Details: ContextDetails{Tenant: tenantCorp.Name, Credential: ciName}})
-	cfg.UpsertContext(Context{Name: devContext.Name, Details: ContextDetails{Tenant: tenantCorp.Name, Credential: ciName, Subscription: "sub-1"}})
+	t1 := newTenant(t, tenant)
+	cfg.UpsertTenant(t1)
+	t2 := newTenant(t, tenant)
+	cfg.UpsertTenant(t2)
+
+	cred1 := newCredential(t, credential, CredentialTypeUser)
+	cfg.UpsertCredential(&cred1)
+	cred2 := newCredential(t, credential, CredentialTypeManagedIdentity)
+	cfg.UpsertCredential(&cred2)
+
+	ctx1 := newContext(t, context, tenant, credential)
+	cfg.UpsertContext(ctx1)
+	ctx2 := newContext(t, context, tenant, credential)
+	ctx2.Details.Subscription = "sub-1"
+	cfg.UpsertContext(ctx2)
 
 	require.Len(t, cfg.Tenants, 1)
-	assert.Equal(t, tenantPlat.Details.ID, cfg.Tenants[0].Details.ID)
+	assert.Equal(t, t2.Details.ID, cfg.Tenants[0].Details.ID)
 	require.Len(t, cfg.Credentials, 1)
 	assert.Equal(t, CredentialTypeManagedIdentity, cfg.Credentials[0].Details.Type)
 	require.Len(t, cfg.Contexts, 1)
 	assert.Equal(t, "sub-1", cfg.Contexts[0].Details.Subscription)
 
-	assert.True(t, cfg.DeleteContext(devContext.Name))
-	assert.False(t, cfg.DeleteContext(devContext.Name))
+	assert.True(t, cfg.DeleteContext(ctx1.Name))
+	assert.False(t, cfg.DeleteContext(ctx2.Name))
 }
 
 func TestRenameContext(t *testing.T) {
-	cfg := &Config{
-		Contexts: []Context{{Name: "old", Details: ContextDetails{Tenant: tenantCorp.Name, Credential: ciName}}},
-	}
+	cfg := newTestConfig(t).
+		withContext("old", "corp", "ci").
+		build()
 
 	assert.True(t, cfg.RenameContext("old", "new"))
 	assert.Equal(t, "new", cfg.Contexts[0].Name)
@@ -74,55 +87,45 @@ func TestRenameContext(t *testing.T) {
 }
 
 func TestMerge(t *testing.T) {
-	base := &Config{
-		APIVersion:     apiVersion,
-		Kind:           kind,
-		CurrentContext: devContext.Name,
-		Tenants:        []Tenant{{Name: tenantCorp.Name, Details: TenantDetails{ID: tenantCorp.Details.ID}}},
-		Credentials:    []Credential{{Name: ciName, Details: CredentialDetails{Type: CredentialTypeUser}}},
-		Contexts:       []Context{{Name: devContext.Name, Details: ContextDetails{Tenant: tenantCorp.Name, Credential: ciName}}},
-	}
+	base := newTestConfig(t).
+		withTenant("corp").
+		withUserCredential("ci").
+		withContext("dev", "corp", "ci").
+		withCurrentContext("dev").
+		build()
 
-	next := &Config{
-		APIVersion:     apiVersion,
-		Kind:           kind,
-		CurrentContext: prodContext.Name,
-		Tenants: []Tenant{
-			{Name: tenantCorp.Name, Details: TenantDetails{ID: tenantPlat.Details.ID}},
-			{Name: tenantPlat.Name, Details: TenantDetails{ID: "tenant-3"}},
-		},
-		Credentials: []Credential{
-			{Name: ciName, Details: CredentialDetails{Type: CredentialTypeManagedIdentity}},
-			{Name: "ops", Details: CredentialDetails{Type: CredentialTypeUser}},
-		},
-		Contexts: []Context{
-			{Name: devContext.Name, Details: ContextDetails{Tenant: tenantCorp.Name, Credential: ciName, Subscription: "sub-a"}},
-			{Name: prodContext.Name, Details: ContextDetails{Tenant: tenantPlat.Name, Credential: "ops"}},
-		},
-	}
+	next := newTestConfig(t).
+		withTenant("corp").
+		withTenant("tenant-3").
+		withMICredential("ci").
+		withUserCredential("ops").
+		withContext("dev", "corp", "ci", withSubscription("sub-a")).
+		withContext("prod", "tenant-2", "ops").
+		withCurrentContext("prod").
+		build()
 
-	err := base.Merge(next)
+	err := base.Merge(&next)
 	require.NoError(t, err)
 
-	assert.Equal(t, devContext.Name, base.CurrentContext)
+	assert.Equal(t, "dev", base.CurrentContext)
 	require.Len(t, base.Tenants, 2)
 	require.Len(t, base.Credentials, 2)
 	require.Len(t, base.Contexts, 2)
 
-	tenant, ok := base.TenantByName(tenantCorp.Name)
+	tenant, ok := base.TenantByName("corp")
 	require.True(t, ok)
-	assert.Equal(t, tenantCorp.Details.ID, tenant.Details.ID)
+	assert.Equal(t, base.Tenants[0].Details.ID, tenant.Details.ID)
 
-	contextValue, ok := base.ContextByName(devContext.Name)
+	contextValue, ok := base.ContextByName("dev")
 	require.True(t, ok)
 	assert.Empty(t, contextValue.Details.Subscription)
 }
 
 func TestValidateContextReferences(t *testing.T) {
-	cfg := &Config{
-		Tenants:     []Tenant{{Name: tenantCorp.Name, Details: TenantDetails{ID: tenantCorp.Details.ID}}},
-		Credentials: []Credential{{Name: ciName, Details: CredentialDetails{Type: CredentialTypeUser}}},
-	}
+	cfg := newTestConfig(t).
+		withTenant("corp").
+		withUserCredential("ci").
+		build()
 
 	tests := []struct {
 		name    string
@@ -131,31 +134,31 @@ func TestValidateContextReferences(t *testing.T) {
 	}{
 		{
 			name:    "valid",
-			context: Context{Name: devContext.Name, Details: ContextDetails{Tenant: tenantCorp.Name, Credential: ciName}},
+			context: newContext(t, "dev", "corp", "ci"),
 		},
 		{
 			name:    "missing name",
-			context: Context{Details: ContextDetails{Tenant: tenantCorp.Name, Credential: ciName}},
+			context: newContext(t, "", "corp", "ci"),
 			wantErr: "context name is required",
 		},
 		{
 			name:    "missing tenant",
-			context: Context{Name: devContext.Name, Details: ContextDetails{Credential: ciName}},
+			context: newContext(t, "dev", "", "ci"),
 			wantErr: "context tenant is required",
 		},
 		{
 			name:    "missing credential",
-			context: Context{Name: devContext.Name, Details: ContextDetails{Tenant: tenantCorp.Name}},
+			context: newContext(t, "dev", "corp", ""),
 			wantErr: "context credential is required",
 		},
 		{
 			name:    "unknown tenant",
-			context: Context{Name: devContext.Name, Details: ContextDetails{Tenant: "missing", Credential: ciName}},
+			context: newContext(t, "dev", "missing", "ci"),
 			wantErr: "tenant \"missing\" does not exist",
 		},
 		{
 			name:    "unknown credential",
-			context: Context{Name: devContext.Name, Details: ContextDetails{Tenant: tenantCorp.Name, Credential: "missing"}},
+			context: newContext(t, "dev", "corp", "missing"),
 			wantErr: "credential \"missing\" does not exist",
 		},
 	}

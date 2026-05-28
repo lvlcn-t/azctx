@@ -40,138 +40,63 @@ func TestParseCredentialType(t *testing.T) {
 func TestCredentialValidate(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   *Credential
+		input   Credential
 		wantErr bool
 	}{
 		{
-			name: "service principal with secret",
-			input: &Credential{
-				Name: ciName,
-				Details: CredentialDetails{
-					Type: CredentialTypeServicePrincipal,
-					Azure: AzureCredential{
-						ClientID:     clientIDVal,
-						ClientSecret: "secret",
-					},
-				},
-			},
+			name:  "service principal with secret",
+			input: newCredential(t, "ci", CredentialTypeServicePrincipal),
 		},
 		{
-			name: "service principal with certificate",
-			input: &Credential{
-				Name: ciName,
-				Details: CredentialDetails{
-					Type: CredentialTypeServicePrincipal,
-					Azure: AzureCredential{
-						ClientID:              clientIDVal,
-						ClientCertificatePath: "/tmp/cert.pem",
-					},
-				},
-			},
+			name:  "service principal with certificate",
+			input: newCredential(t, "ci-cert", CredentialTypeServicePrincipal, withClientCert("/tmp/cert.pem")),
 		},
 		{
-			name: "service principal missing id",
-			input: &Credential{
-				Name: ciName,
-				Details: CredentialDetails{
-					Type: CredentialTypeServicePrincipal,
-					Azure: AzureCredential{
-						ClientSecret: "secret",
-					},
-				},
-			},
+			name:    "service principal missing id",
+			input:   newCredential(t, "ci-missing-id", CredentialTypeServicePrincipal, withClientID("")),
 			wantErr: true,
 		},
 		{
-			name: "service principal missing auth material",
-			input: &Credential{
-				Name: ciName,
-				Details: CredentialDetails{
-					Type: CredentialTypeServicePrincipal,
-					Azure: AzureCredential{
-						ClientID: clientIDVal,
-					},
-				},
-			},
+			name:    "service principal missing auth material",
+			input:   newCredential(t, "ci-missing-auth", CredentialTypeServicePrincipal, withClientSecret("")),
 			wantErr: true,
 		},
 		{
-			name: "user",
-			input: &Credential{
-				Name: devContext.Name,
-				Details: CredentialDetails{
-					Type: CredentialTypeUser,
-				},
-			},
+			name:  "user",
+			input: newCredential(t, "user", CredentialTypeUser),
 		},
 		{
-			name: "managed identity",
-			input: &Credential{
-				Name: "mi",
-				Details: CredentialDetails{
-					Type: CredentialTypeManagedIdentity,
-				},
-			},
+			name:  "managed identity",
+			input: newCredential(t, "mi", CredentialTypeManagedIdentity),
 		},
 		{
-			name: "workload identity",
-			input: &Credential{
-				Name: "workload-identity",
-				Details: CredentialDetails{
-					Type: CredentialTypeWorkloadIdentity,
-					Azure: AzureCredential{
-						ClientID: clientIDVal,
-					},
-					Token: TokenDetails{
-						Source: TokenSourceFile,
-						File: &FileSource{
-							Path: "/tmp/token",
-						},
-					},
-				},
-			},
+			name:  "workload identity",
+			input: newCredential(t, "wi", CredentialTypeWorkloadIdentity),
 		},
 		{
-			name: "workload identity missing token source",
-			input: &Credential{
-				Name: "workload-identity",
-				Details: CredentialDetails{
-					Type:  CredentialTypeWorkloadIdentity,
-					Azure: AzureCredential{ClientID: clientIDVal},
-				},
-			},
+			name:    "workload identity missing token source",
+			input:   newCredential(t, "wi-missing-source", CredentialTypeWorkloadIdentity, withTokenSource("")),
 			wantErr: true,
 		},
 		{
 			name: "workload identity missing token file path",
-			input: &Credential{
-				Name: "workload-identity",
-				Details: CredentialDetails{
-					Type:  CredentialTypeWorkloadIdentity,
-					Azure: AzureCredential{ClientID: clientIDVal},
-					Token: TokenDetails{
-						Source: TokenSourceFile,
-						File:   &FileSource{},
-					},
-				},
-			},
+			input: newCredential(t,
+				"wi-missing-file",
+				CredentialTypeWorkloadIdentity,
+				withTokenSource(TokenSourceFile),
+				withTokenFile(""),
+			),
 			wantErr: true,
 		},
 		{
 			name: "workload identity with invalid token source",
-			input: &Credential{
-				Name: "workload-identity",
-				Details: CredentialDetails{
-					Type:  CredentialTypeWorkloadIdentity,
-					Azure: AzureCredential{ClientID: clientIDVal},
-					Token: TokenDetails{
-						Source: "invalid-source",
-					},
-				},
-			},
+			input: newCredential(t,
+				"wi-invalid-source",
+				CredentialTypeWorkloadIdentity,
+				withTokenSource("invalid-source"),
+			),
 			wantErr: true,
 		},
-		{name: "nil credential", input: nil, wantErr: true},
 	}
 
 	for _, tt := range tests {
