@@ -4,6 +4,12 @@ azctx manages named contexts that map to an Azure tenant, credential,
 and optional subscription. Switching contexts syncs the Azure CLI
 session automatically.
 
+## Interactive mode
+
+Running `azctx` or `azctx use` without a context name opens an
+interactive TUI picker. Use arrow keys to browse contexts, then
+press Enter to switch.
+
 ## Commands
 
 | Command                                      | Alias             | Description                                     |
@@ -68,6 +74,21 @@ azctx use dev-west     # calls az login + az account set
 azctx current          # prints "dev-west"
 azctx list -o table    # all contexts with status column
 azctx get dev-west -o json
+```
+
+## Shell completions
+
+azctx provides completions for Bash, Zsh, and Fish.
+
+**Homebrew** installs completions automatically — no action needed.
+
+**Manual install**: the release archive includes completion scripts in
+`completions/`. Source the appropriate file, or generate fresh:
+
+```bash
+azctx completion bash > ~/.local/share/bash-completion/completions/azctx
+azctx completion zsh  > "${fpath[1]}/_azctx"
+azctx completion fish > ~/.config/fish/completions/azctx.fish
 ```
 
 ## See also

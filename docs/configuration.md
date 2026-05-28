@@ -26,9 +26,15 @@ export AZCTX="$HOME/.config/azctx/work.yaml:$HOME/.config/azctx/personal.yaml"
 
 ## File structure
 
-A config file has three top-level lists and one scalar:
+A config file has three top-level lists and one scalar. The optional
+`apiVersion` and `kind` fields are written automatically and enable
+future format versioning — you can omit them (they default to
+`azctx.lvlcn-t.dev/v1alpha1` and `Config`):
 
 ```yaml
+apiVersion: azctx.lvlcn-t.dev/v1alpha1
+kind: Config
+
 tenants:
   - name: dev
     id: 00000000-0000-0000-0000-000000000000
@@ -50,6 +56,20 @@ contexts:
 
 current-context: dev
 ```
+
+## Context fields
+
+Each context entry supports these fields under `context:`:
+
+| Field                    | Required | Description                              |
+| ------------------------ | -------- | ---------------------------------------- |
+| `tenant`                 | yes      | Name of a tenant entry                   |
+| `credential`             | yes      | Name of a credential entry               |
+| `subscription`           | no       | Subscription ID to set after login       |
+| `allow-no-subscriptions` | no       | Pass `--allow-no-subscriptions` to login |
+
+Set `allow-no-subscriptions: true` for B2C or resource-less tenants
+where no subscription exists.
 
 ## Credential types
 
@@ -162,3 +182,12 @@ URI format: `keyvault://<vault>/<secrets|certificates>/<name>[/<version>]`
 <!-- markdownlint-enable MD028 -->
 
 [dac]: https://learn.microsoft.com/en-us/azure/developer/go/sdk/authentication/local-development-dev-accounts?tabs=azure-portal%2Csign-in-azure-cli
+
+## Environment variables
+
+| Variable           | Description                                                                                           |
+| ------------------ | ----------------------------------------------------------------------------------------------------- |
+| `AZCTX`            | Colon-separated config file paths (overrides default)                                                 |
+| `XDG_CONFIG_HOME`  | Base directory for config (default `~/.config`)                                                       |
+| `AZURE_CONFIG_DIR` | Azure CLI config directory (default `~/.azure`) — azctx reads and modifies `config` here during login |
+| `BROWSER`          | Browser command for OAuth2 PKCE login (falls back to platform default)                                |

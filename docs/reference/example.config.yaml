@@ -40,5 +40,10 @@ contexts:
     context:
       tenant: dev
       credential: id-dev
+      allow-no-subscriptions: true
 
-current-context: dev/id-dev
+  - name: dev/sp-dev
+    context:
+      tenant: dev
+      credential: sp-dev
+      subscription: 00000000-0000-0000-0000-000000000000

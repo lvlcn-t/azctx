@@ -10,9 +10,9 @@ after `kubectx`.
 # Build binary to bin/azctx
 make build
 
-# Build and run (pass subcommands after target)
-make dev use
-make dev list
+# Build and run (pass subcommands via ARGS)
+make dev ARGS="use"
+make dev ARGS="list"
 
 # Run tests (mirrors pre-commit)
 GOEXPERIMENT=jsonv2 go test -race -count=1 -short ./...
@@ -30,22 +30,26 @@ pre-commit run --all-files
 
 Hooks run in order: `go generate ./...` → `go mod tidy` →
 `go test -race -count=1 -short` → `go vet` → `gofumpt` →
-`golangci-lint --fix` → `gitleaks`.
+`golangci-lint --fix` → `gitleaks` → `markdownlint-cli2`.
 
 Lint is auto-fixed by the hook (`--fix`). Format uses `gofumpt`, not
 `gofmt` — run `gofumpt -l -w .` manually if needed.
 
 ## Code structure
 
-| Path        | Purpose                                                |
-| ----------- | ------------------------------------------------------ |
-| `main.go`   | Entry point; injects version via ldflags               |
-| `cmd/`      | Cobra command definitions (one file per command)       |
-| `az/`       | Azure CLI integration (reads/writes `~/.azure/config`) |
-| `config/`   | azctx config loader, writer, and type definitions      |
-| `keyvault/` | Azure Key Vault secret retrieval                       |
-| `wif/`      | Workload identity federation (OIDC token exchange)     |
-| `output/`   | Output formatting / printer                            |
+| Path           | Purpose                                                |
+| -------------- | ------------------------------------------------------ |
+| `main.go`      | Entry point; injects version via ldflags               |
+| `cmd/`         | Cobra command definitions (one file per command)       |
+| `az/`          | Azure CLI integration (reads/writes `~/.azure/config`) |
+| `config/`      | azctx config loader, writer, and type definitions      |
+| `keyvault/`    | Azure Key Vault secret retrieval                       |
+| `wif/`         | Workload identity federation (OIDC token exchange)     |
+| `tui/`         | Bubble Tea interactive TUI (browse contexts/creds)     |
+| `output/`      | Output formatting / printer                            |
+| `semver/`      | Semantic version parsing                               |
+| `completions/` | Generated shell completion scripts (bash/fish/zsh)     |
+| `internal/`    | `gendoc` (CLI reference docs), `gendemo` (demo GIF)    |
 
 The `az` package temporarily sets `login_experience_v2 = off` in the
 Azure CLI config file before calling `az login`, then restores it.
@@ -54,6 +58,8 @@ The config path honours `$AZURE_CONFIG_DIR`.
 `go generate` produces mock files (`*_moq.go`) via `go tool moq`.
 Run `GOEXPERIMENT=jsonv2 go generate ./...` after changing interfaces
 in `az/`, `keyvault/`, or `wif/`. Never hand-edit `*_moq.go` files.
+
+If a change touches the TUI, regenerate the demo GIF: `make demo`.
 
 ## Config file behaviour
 
@@ -64,8 +70,8 @@ in `az/`, `keyvault/`, or `wif/`. Never hand-edit `*_moq.go` files.
   if none exist
 
 Credential types: `service-principal`, `user`, `managed-identity`,
-`oidc`. Each has required fields validated at runtime (see
-`config/types.go:Credential.Validate`).
+`workload-identity`. Each has required fields validated at runtime
+(see `config/credential.go`).
 
 ## Linter rules worth knowing
 

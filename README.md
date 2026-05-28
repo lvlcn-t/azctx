@@ -80,6 +80,9 @@ Available tags: `latest`, `vMAJOR`, `vMAJOR.MINOR`, and full semver.
 Create a minimal config at `~/.config/azctx/config.yaml`:
 
 ```yaml
+apiVersion: azctx.lvlcn-t.dev/v1alpha1
+kind: Config
+
 tenants:
   - name: dev
     id: 00000000-0000-0000-0000-000000000000
@@ -88,7 +91,6 @@ credentials:
   - name: personal
     credential:
       type: user
-      azure: {}
 
 contexts:
   - name: dev
@@ -105,6 +107,9 @@ azctx current        # prints "dev"
 azctx list -o table  # show all contexts
 ```
 
+For a more detailed guide, see the [Usage documentation](docs/usage.md) and
+the [example config](docs/reference/example.config.yaml).
+
 ## Documentation
 
 | Guide                                          | Description                                                |
@@ -117,7 +122,7 @@ azctx list -o table  # show all contexts
 
 ## License
 
-Copyright (c) 2024 lvlcn-t. Licensed under the
+Copyright (c) 2026 lvlcn-t. Licensed under the
 [MIT License](./LICENSE).
 
 ## Code of Conduct
