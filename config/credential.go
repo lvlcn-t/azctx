@@ -16,6 +16,10 @@ type Credential struct {
 // CredentialType identifies the kind of Azure credential.
 type CredentialType string
 
+func (c CredentialType) String() string {
+	return string(c)
+}
+
 // NewCredentialType parses a raw string into a CredentialType, validating that it's supported.
 func NewCredentialType(raw string) (CredentialType, error) {
 	v := CredentialType(raw)

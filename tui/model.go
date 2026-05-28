@@ -1,9 +1,9 @@
 package tui
 
 import (
-	"github.com/charmbracelet/lipgloss"
-
+	"github.com/charmbracelet/bubbles/help"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/lvlcn-t/azctx/config"
 )
 
@@ -46,6 +46,10 @@ type model struct {
 	// Viewer overlay
 	viewing bool
 	viewer  viewerModel
+
+	// Help bar
+	helpModel help.Model
+	keyMap    helpMap
 
 	// Result
 	choice string
@@ -126,6 +130,12 @@ func (m model) transitionToApp() (tea.Model, tea.Cmd) {
 	m.contexts = newContextsTab(cfg, m.mode, contentW, contentH)
 	m.tenants = newTenantsTab(cfg, contentW, contentH)
 	m.credentials = newCredentialsTab(cfg, contentW, contentH)
+	m.keyMap = newHelpMap(m.mode)
+	m.helpModel = help.New()
+	m.helpModel.ShortSeparator = " • "
+	m.helpModel.Styles.ShortKey = lipgloss.NewStyle().Foreground(colorPrimary)
+	m.helpModel.Styles.ShortDesc = lipgloss.NewStyle().Foreground(colorDim)
+	m.helpModel.Styles.ShortSeparator = lipgloss.NewStyle().Foreground(colorDim)
 	m.state = stateApp
 	return m, nil
 }
@@ -255,7 +265,7 @@ func (m model) View() string {
 	}
 
 	// Help bar
-	help := helpStyle.Render(" enter: select \u2022 v: view \u2022 tab/shift+tab: switch tab \u2022 /: filter \u2022 q: quit")
+	helpBar := " " + m.helpModel.View(m.keyMap)
 
-	return lipgloss.JoinVertical(lipgloss.Left, title, tabs, content, help)
+	return lipgloss.JoinVertical(lipgloss.Left, title, tabs, content, helpBar)
 }

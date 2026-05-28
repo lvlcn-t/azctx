@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"fmt"
+
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/lvlcn-t/azctx/config"
 )
@@ -43,7 +45,7 @@ func (i *contextItem) detailRows() []detailRow {
 		{"Credential", i.credential},
 		{"Credential Type", i.credType},
 		{"Subscription", i.subscription},
-		{"Current", boolStr(i.current)},
+		{"Current", fmt.Sprintf("%t", i.current)},
 	}
 }
 
@@ -139,16 +141,9 @@ func buildCredentialItems(cfg *config.Config) []list.Item {
 	for _, c := range cfg.Credentials {
 		items = append(items, &credentialItem{
 			name:     c.Name,
-			credType: string(c.Details.Type),
+			credType: c.Details.Type.String(),
 			clientID: c.Details.Azure.ClientID,
 		})
 	}
 	return items
-}
-
-func boolStr(b bool) string {
-	if b {
-		return "true"
-	}
-	return "false"
 }
