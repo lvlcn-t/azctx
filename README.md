@@ -10,9 +10,14 @@
 A CLI tool for managing Azure CLI contexts, modelled after
 [`kubectx`](https://github.com/ahmetb/kubectx). It maintains a
 composable config file that maps named contexts to a tenant, credential,
-and optional subscription. Running `azctx use <name>` switches the
-active context and syncs the Azure CLI session via `az login` and
-`az account set`.
+and optional subscription. `azctx use <name>` switches the active
+context and syncs your Azure CLI session instantly:
+
+<!-- markdownlint-disable MD033 -->
+<p align="center">
+  <img src="./docs/demo.gif" width="900" alt="azctx demo">
+</p>
+<!-- markdownlint-enable MD033 -->
 
 ## Installation
 

@@ -28,3 +28,7 @@ test: ## Run all tests
 .PHONY: docs
 docs: ## Generate CLI reference documentation
 	@go generate ./internal/gendoc/...
+
+.PHONY: demo
+demo: ## Generate the demo GIF using the static tape template
+	@go run internal/gendemo/main.go -out docs/demo.gif

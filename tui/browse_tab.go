@@ -35,7 +35,7 @@ func (t *browseTab) Update(msg tea.KeyMsg) (viewerContent, tea.Cmd) {
 	}
 
 	switch keyName(msg.String()) {
-	case keyEnter, keyView:
+	case keyEnter, keyView, keyDescribe:
 		if item, ok := t.list.SelectedItem().(viewerContent); ok {
 			return item, nil
 		}

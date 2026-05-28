@@ -18,8 +18,10 @@ func (k keyName) Binding(text string) key.Binding {
 }
 
 const (
-	keyEnter keyName = "enter"
-	keyView  keyName = "v"
+	keyEnter    keyName = "enter"
+	keyUse      keyName = "u"
+	keyView     keyName = "v"
+	keyDescribe keyName = "d"
 
 	keyEsc   keyName = "esc"
 	keyQuit  keyName = "q"
@@ -29,6 +31,8 @@ const (
 	keyShiftTab keyName = "shift+tab"
 	keyRight    keyName = "right"
 	keyLeft     keyName = "left"
+	keyH        keyName = "h"
+	keyL        keyName = "l"
 )
 
 var _ help.KeyMap = (*helpMap)(nil)
@@ -49,8 +53,9 @@ func newHelpMap(mode Mode) helpMap {
 
 	return helpMap{bindings: []key.Binding{
 		keyEnter.Binding(enterDesc),
-		keyView.Binding("detail"),
+		keyDescribe.Binding("detail"),
 		keyTab.Binding("next tab"),
+		keyShiftTab.Binding("previous tab"),
 		key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
 		keyQuit.Binding("quit"),
 	}}

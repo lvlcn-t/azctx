@@ -124,10 +124,11 @@ func (m model) transitionToApp() (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	}
 
+	store := &m.splash.result.store
 	cfg := &m.splash.result.store.Config
 	contentW, contentH := m.contentSize()
 
-	m.contexts = newContextsTab(cfg, m.mode, contentW, contentH)
+	m.contexts = newContextsTab(store, m.mode, contentW, contentH)
 	m.tenants = newTenantsTab(cfg, contentW, contentH)
 	m.credentials = newCredentialsTab(cfg, contentW, contentH)
 	m.keyMap = newHelpMap(m.mode)
@@ -143,10 +144,10 @@ func (m model) transitionToApp() (tea.Model, tea.Cmd) {
 //nolint:gocritic // updateApp must be a value receiver for bubbletea's Elm architecture.
 func (m model) updateApp(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch keyName(msg.String()) {
-	case keyTab, keyRight:
+	case keyTab, keyRight, keyL:
 		m.activeTab = (m.activeTab + 1) % tabCount
 		return m, nil
-	case keyShiftTab, keyLeft:
+	case keyShiftTab, keyLeft, keyH:
 		m.activeTab = (m.activeTab - 1 + tabCount) % tabCount
 		return m, nil
 	case keyQuit, keyCtrlC:

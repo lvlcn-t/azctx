@@ -12,7 +12,7 @@ type contextsTab struct {
 	mode Mode
 }
 
-func newContextsTab(cfg *config.Config, mode Mode, width, height int) contextsTab {
+func newContextsTab(cfg *config.Store, mode Mode, width, height int) contextsTab {
 	items := buildContextItems(cfg)
 	l := list.New(items, newItemDelegate(), width, height)
 	l.Title = ""
@@ -39,16 +39,16 @@ func (t *contextsTab) Update(msg tea.KeyMsg) (string, viewerContent, tea.Cmd) {
 	}
 
 	switch keyName(msg.String()) {
-	case keyEnter:
+	case keyEnter, keyUse:
 		item, ok := t.list.SelectedItem().(*contextItem)
 		if !ok {
 			return "", nil, nil
 		}
 		if t.mode == ModeInteractive {
-			return item.name, nil, nil
+			return item.Name, nil, nil
 		}
 		return "", item, nil
-	case keyView:
+	case keyView, keyDescribe:
 		if item, ok := t.list.SelectedItem().(*contextItem); ok {
 			return "", item, nil
 		}
