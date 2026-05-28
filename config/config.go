@@ -3,16 +3,18 @@ package config
 import (
 	"errors"
 	"fmt"
+
+	"github.com/lvlcn-t/azctx/semver"
 )
 
 // Config is the root azctx configuration document.
 type Config struct {
-	APIVersion     string       `yaml:"apiVersion" json:"apiVersion"`
-	Kind           string       `yaml:"kind" json:"kind"`
-	Tenants        []Tenant     `yaml:"tenants" json:"tenants"`
-	Credentials    []Credential `yaml:"credentials" json:"credentials"`
-	Contexts       []Context    `yaml:"contexts" json:"contexts"`
-	CurrentContext string       `yaml:"current-context,omitempty" json:"current-context,omitempty"`
+	APIVersion     semver.Version `yaml:"apiVersion" json:"apiVersion"`
+	Kind           string         `yaml:"kind" json:"kind"`
+	Tenants        []Tenant       `yaml:"tenants" json:"tenants"`
+	Credentials    []Credential   `yaml:"credentials" json:"credentials"`
+	Contexts       []Context      `yaml:"contexts" json:"contexts"`
+	CurrentContext string         `yaml:"current-context,omitempty" json:"current-context,omitempty"`
 }
 
 // TenantByName returns a tenant by name.
@@ -125,9 +127,17 @@ func (cfg *Config) RenameContext(oldName, newName string) bool {
 }
 
 // Merge merges another config into this config.
-func (cfg *Config) Merge(next *Config) {
+func (cfg *Config) Merge(next *Config) error {
 	if cfg == nil || next == nil {
-		return
+		return nil
+	}
+
+	if !cfg.APIVersion.Compatible(next.APIVersion) {
+		return fmt.Errorf(
+			"cannot merge configs with incompatible API versions: %q vs %q",
+			cfg.APIVersion,
+			next.APIVersion,
+		)
 	}
 
 	if cfg.CurrentContext == "" && next.CurrentContext != "" {
@@ -137,6 +147,7 @@ func (cfg *Config) Merge(next *Config) {
 	cfg.mergeTenants(next.Tenants)
 	cfg.mergeCredentials(next.Credentials)
 	cfg.mergeContexts(next.Contexts)
+	return nil
 }
 
 // ValidateContextReferences validates a context and its references.

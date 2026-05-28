@@ -43,10 +43,7 @@ func (l *Loader) Load() (Store, error) {
 	}
 
 	loaded := Store{
-		Config: Config{
-			APIVersion: apiVersion,
-			Kind:       kind,
-		},
+		Config:      Config{},
 		Paths:       paths,
 		fileConfigs: make(map[string]Config, len(paths)),
 		sources: sourceIndex{
@@ -67,7 +64,9 @@ func (l *Loader) Load() (Store, error) {
 
 		loaded.fileConfigs[path] = cfg
 		loaded.indexSources(path, &cfg)
-		loaded.Config.Merge(&cfg)
+		if err := loaded.Config.Merge(&cfg); err != nil {
+			return Store{}, fmt.Errorf("merge config %q: %w", path, err)
+		}
 	}
 
 	loaded.WritePath = loaded.defaultWritePath()

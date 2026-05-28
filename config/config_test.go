@@ -75,6 +75,8 @@ func TestRenameContext(t *testing.T) {
 
 func TestMerge(t *testing.T) {
 	base := &Config{
+		APIVersion:     apiVersion,
+		Kind:           kind,
 		CurrentContext: devContext.Name,
 		Tenants:        []Tenant{{Name: tenantCorp.Name, Details: TenantDetails{ID: tenantCorp.Details.ID}}},
 		Credentials:    []Credential{{Name: ciName, Details: CredentialDetails{Type: CredentialTypeUser}}},
@@ -82,6 +84,8 @@ func TestMerge(t *testing.T) {
 	}
 
 	next := &Config{
+		APIVersion:     apiVersion,
+		Kind:           kind,
 		CurrentContext: prodContext.Name,
 		Tenants: []Tenant{
 			{Name: tenantCorp.Name, Details: TenantDetails{ID: tenantPlat.Details.ID}},
@@ -97,7 +101,8 @@ func TestMerge(t *testing.T) {
 		},
 	}
 
-	base.Merge(next)
+	err := base.Merge(next)
+	require.NoError(t, err)
 
 	assert.Equal(t, devContext.Name, base.CurrentContext)
 	require.Len(t, base.Tenants, 2)

@@ -9,6 +9,7 @@ import (
 
 	"github.com/lvlcn-t/azctx/config"
 	"github.com/lvlcn-t/azctx/keyvault"
+	"github.com/lvlcn-t/azctx/semver"
 )
 
 const (
@@ -21,9 +22,13 @@ const (
 	flagTenant               = "--tenant"
 	flagPassword             = "--password"
 	flagFederatedToken       = "--federated-token"
-	flagSubscription         = "--subscription"
-	flagDisableSubDiscovery  = "--skip-subscription-discovery"
 	flagAllowNoSubscriptions = "--allow-no-subscriptions"
+	flagSubscription         = "--subscription"
+
+	// supportsScopedLogin is the minimum Azure CLI version that supports scoped login with tenant and credential,
+	// allowing us to avoid calling az account set for those versions.
+	supportsScopedLogin     = semver.Version("2.86.0")
+	flagDisableSubDiscovery = "--skip-subscription-discovery"
 )
 
 var (
@@ -50,7 +55,7 @@ type CLI interface {
 }
 
 type client struct {
-	azVersion            version
+	azVersion            semver.Version
 	credential           *config.Credential
 	tenantID             string
 	subscriptionID       string
@@ -116,7 +121,7 @@ func (c *client) Login(ctx context.Context) error {
 		return fmt.Errorf("%w: %w", ErrLogin, err)
 	}
 
-	if !c.azVersion.supportsScopedLogin() && c.subscriptionID != "" {
+	if !c.azVersion.AtLeast(supportsScopedLogin) && c.subscriptionID != "" {
 		return az(ctx, "account", "set", flagSubscription, c.subscriptionID)
 	}
 
@@ -253,7 +258,7 @@ func (c *client) baseArgs() []string {
 }
 
 func (c *client) appendScopedLoginArgs(args []string) []string {
-	if !c.azVersion.supportsScopedLogin() {
+	if !c.azVersion.AtLeast(supportsScopedLogin) {
 		return args
 	}
 
