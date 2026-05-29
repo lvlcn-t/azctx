@@ -6,6 +6,7 @@ import (
 	"github.com/lvlcn-t/azctx/config"
 	"github.com/lvlcn-t/azctx/output"
 	"github.com/lvlcn-t/azctx/tui"
+	"github.com/lvlcn-t/azctx/tui/state"
 	"github.com/spf13/cobra"
 )
 
@@ -34,14 +35,14 @@ func newListCmd() *cobra.Command {
 // run executes the list command.
 func (c *listCmd) run(cmd *cobra.Command, _ []string) error {
 	// If no explicit -o flag, launch interactive TUI.
-	if !cmd.Flags().Changed("output") {
-		_, tuiErr := tui.Run(c.loader, tui.ModeBrowse)
-		return tuiErr
-	}
-
 	store, err := c.loader.Load()
 	if err != nil {
 		return err
+	}
+
+	if !cmd.Flags().Changed("output") {
+		_, tuiErr := tui.RunV2(&store, state.ModeBrowse)
+		return tuiErr
 	}
 
 	format, err := outputFormat(cmd)

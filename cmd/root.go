@@ -5,6 +5,7 @@ import (
 
 	"github.com/lvlcn-t/azctx/config"
 	"github.com/lvlcn-t/azctx/tui"
+	"github.com/lvlcn-t/azctx/tui/state"
 	"github.com/spf13/cobra"
 )
 
@@ -30,7 +31,7 @@ var AzCtx = &cobra.Command{
 			return err
 		}
 
-		choice, err := tui.Run(loader, tui.ModeInteractive)
+		choice, err := tui.RunV2(&store, state.ModeInteractive)
 		if err != nil {
 			return err
 		}
