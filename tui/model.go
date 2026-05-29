@@ -2,6 +2,7 @@ package tui
 
 import (
 	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/lvlcn-t/azctx/config"
@@ -143,6 +144,20 @@ func (m model) transitionToApp() (tea.Model, tea.Cmd) {
 
 //nolint:gocritic // updateApp must be a value receiver for bubbletea's Elm architecture.
 func (m model) updateApp(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	var filtering bool
+	switch m.activeTab {
+	case tabContexts:
+		filtering = m.contexts.list.FilterState() == list.Filtering
+	case tabTenants:
+		filtering = m.tenants.list.FilterState() == list.Filtering
+	case tabCredentials:
+		filtering = m.credentials.list.FilterState() == list.Filtering
+	}
+
+	if filtering {
+		return m, m.activeTabUpdateMsg(msg)
+	}
+
 	switch keyName(msg.String()) {
 	case keyTab, keyRight, keyL:
 		m.activeTab = (m.activeTab + 1) % tabCount
