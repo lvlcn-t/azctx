@@ -7,12 +7,12 @@ var _ Tab = (*TenantsTab)(nil)
 // TODO: Add edit capabilities for tenants.
 
 type TenantsTab struct {
-	browse
+	browseTab
 }
 
 func tenantsTab(s *state.UI, l listBuilder) *TenantsTab { //nolint:gocritic // irrelevant on startup
 	items := tenantItems(s.Config())
 	return &TenantsTab{
-		browse: newBrowse(l.WithItems(items...)),
+		browseTab: newBrowseTab(l.WithItems(items...)),
 	}
 }

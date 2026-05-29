@@ -7,21 +7,27 @@ import (
 	"github.com/lvlcn-t/azctx/tui/details"
 )
 
-var _ Tab = (*browse)(nil)
+var _ Tab = (*browseTab)(nil)
 
-type browse struct {
+type browseTab struct {
 	list list.Model
 }
 
-func newBrowse(l listBuilder) browse { //nolint:gocritic // irrelevant on startup
-	return browse{
-		list: l.Build(),
+func newBrowseTab(l listBuilder) browseTab { //nolint:gocritic // irrelevant on startup
+	return browseTab{
+		list: l.
+			ShowStatusBar(true).
+			ShowHelp(true).
+			EnableFiltering(true).
+			Build(),
 	}
 }
 
-func (t *browse) Update(msg control.Trigger) (TabAction, tea.Cmd) {
+func (t *browseTab) Update(msg control.Trigger) (TabAction, tea.Cmd) {
 	if t.Filtering() {
-		return t.passthrough(msg)
+		var cmd tea.Cmd
+		t.list, cmd = t.list.Update(msg.Msg)
+		return NoAction(), cmd
 	}
 
 	switch msg.Event {
@@ -32,23 +38,19 @@ func (t *browse) Update(msg control.Trigger) (TabAction, tea.Cmd) {
 		return NoAction(), nil
 	}
 
-	return t.passthrough(msg)
-}
-
-func (t *browse) Filtering() bool {
-	return t.list.FilterState() == list.Filtering
-}
-
-func (t *browse) Resize(width, height int) {
-	t.list.SetSize(width, height)
-}
-
-func (t *browse) View() string {
-	return t.list.View()
-}
-
-func (t *browse) passthrough(msg control.Trigger) (TabAction, tea.Cmd) {
 	var cmd tea.Cmd
 	t.list, cmd = t.list.Update(msg.Msg)
 	return NoAction(), cmd
+}
+
+func (t *browseTab) Filtering() bool {
+	return t.list.FilterState() == list.Filtering
+}
+
+func (t *browseTab) Resize(width, height int) {
+	t.list.SetSize(width, height)
+}
+
+func (t *browseTab) View() string {
+	return t.list.View()
 }

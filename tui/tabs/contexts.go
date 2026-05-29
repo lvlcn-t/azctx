@@ -19,7 +19,7 @@ func contextsTab(s *state.UI, l listBuilder) *ContextsTab { //nolint:gocritic //
 	return &ContextsTab{
 		list: l.WithItems(items...).
 			ShowStatusBar(true).
-			ShowHelp(false).
+			ShowHelp(true).
 			EnableFiltering(true).
 			Build(),
 		state: s,
@@ -28,7 +28,9 @@ func contextsTab(s *state.UI, l listBuilder) *ContextsTab { //nolint:gocritic //
 
 func (t *ContextsTab) Update(msg control.Trigger) (TabAction, tea.Cmd) {
 	if t.Filtering() {
-		return t.passthrough(msg)
+		var cmd tea.Cmd
+		t.list, cmd = t.list.Update(msg.Msg)
+		return NoAction(), cmd
 	}
 
 	switch msg.Event {
@@ -47,7 +49,9 @@ func (t *ContextsTab) Update(msg control.Trigger) (TabAction, tea.Cmd) {
 		return ShowDetails(item), nil
 	}
 
-	return t.passthrough(msg)
+	var cmd tea.Cmd
+	t.list, cmd = t.list.Update(msg.Msg)
+	return NoAction(), cmd
 }
 
 func (t *ContextsTab) Filtering() bool {
@@ -60,10 +64,4 @@ func (t *ContextsTab) View() string {
 
 func (t *ContextsTab) Resize(width, height int) {
 	t.list.SetSize(width, height)
-}
-
-func (t *ContextsTab) passthrough(msg control.Trigger) (TabAction, tea.Cmd) {
-	var cmd tea.Cmd
-	t.list, cmd = t.list.Update(msg.Msg)
-	return NoAction(), cmd
 }
