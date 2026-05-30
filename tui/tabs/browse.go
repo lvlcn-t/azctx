@@ -38,6 +38,11 @@ func (t *browseTab) Update(msg control.Trigger) (TabAction, tea.Cmd) {
 			return ShowDetails(item), nil
 		}
 		return NoAction(), nil
+
+	case control.EventClose:
+		// Catch close events to prevent the list from exiting when the user
+		// spams the esc key while filtering.
+		return NoAction(), nil
 	}
 
 	var cmd tea.Cmd

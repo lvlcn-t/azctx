@@ -49,6 +49,11 @@ func (t *ContextsTab) Update(msg control.Trigger) (TabAction, tea.Cmd) {
 			return NoAction(), nil
 		}
 		return ShowDetails(item), nil
+
+	case control.EventClose:
+		// Catch close events to prevent the list from exiting when the user
+		// spams the esc key while filtering.
+		return NoAction(), nil
 	}
 
 	var cmd tea.Cmd
