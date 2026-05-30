@@ -41,7 +41,7 @@ func (c *listCmd) run(cmd *cobra.Command, _ []string) error {
 	}
 
 	if !cmd.Flags().Changed("output") {
-		_, tuiErr := tui.RunV2(&store, state.ModeBrowse)
+		_, tuiErr := tui.Run(&store, state.ModeBrowse)
 		return tuiErr
 	}
 

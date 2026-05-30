@@ -1,7 +1,10 @@
 package control
 
 import (
+	"fmt"
+
 	"github.com/charmbracelet/bubbles/key"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lvlcn-t/azctx/tui/state"
 )
 
@@ -46,6 +49,14 @@ const (
 
 func (k Key) String() string {
 	return string(k)
+}
+
+func (k Key) Matches(msg tea.Msg) bool {
+	m, ok := msg.(fmt.Stringer)
+	if !ok {
+		return false
+	}
+	return key.Matches(m, k.Binding(""))
 }
 
 // Binding creates a [key.Binding] for the given Key, with optional aliases and help text.

@@ -47,7 +47,7 @@ func (c *useCommand) run(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		name = args[0]
 	} else {
-		picked, perr := tui.RunV2(&store, state.ModeInteractive)
+		picked, perr := tui.Run(&store, state.ModeInteractive)
 		if perr != nil {
 			return perr
 		}

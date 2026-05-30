@@ -31,7 +31,7 @@ var AzCtx = &cobra.Command{
 			return err
 		}
 
-		choice, err := tui.RunV2(&store, state.ModeInteractive)
+		choice, err := tui.Run(&store, state.ModeInteractive)
 		if err != nil {
 			return err
 		}

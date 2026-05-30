@@ -1,12 +1,12 @@
 package splash
 
 import (
-	"errors"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/lvlcn-t/azctx/tui/control"
 	"github.com/lvlcn-t/azctx/tui/state"
 	"github.com/lvlcn-t/azctx/tui/styles"
 )
@@ -105,15 +105,19 @@ func (m *Model) View() string {
 }
 
 // Update updates any internal state of the splash screen.
-func (s *Model) Update(_ tea.Msg) (Model, tea.Cmd) {
-	// This doesn't need to handle any messages in the splash screen itself, since it's just a visual element.
-	// The parent model will handle the Done message to transition to the next state.
+func (s *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
+	if control.KeyCtrlC.Matches(msg) {
+		return *s, s.state.Quit()
+	}
 	return *s, nil
 }
 
 func (s *Model) Err() error {
 	if s.result == nil {
-		return errors.New("splash not done yet")
+		// This only happens if the user aborts the splash screen (e.g. ctrl+c)
+		// before the minimum display time has elapsed.
+		// In that case, we can just return nil since it's not an error.
+		return nil
 	}
 	return s.result.Err
 }
