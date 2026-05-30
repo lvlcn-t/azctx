@@ -1,6 +1,9 @@
 package styles
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/lipgloss"
+)
 
 // Azure-inspired adaptive colors (Light = light terminal, Dark = dark terminal).
 const (
@@ -28,6 +31,21 @@ var (
 	DimStyle   = lipgloss.NewStyle().Foreground(ColorDim)
 	HelpStyle  = lipgloss.NewStyle().Foreground(ColorDim).MarginTop(1)
 )
+
+func NewHelpStyles() help.Styles {
+	base := help.New().Styles
+	return help.Styles{
+		Ellipsis: base.Ellipsis,
+
+		ShortKey:       base.ShortKey.Foreground(ColorPrimary),
+		ShortDesc:      base.ShortDesc.Foreground(ColorDim),
+		ShortSeparator: base.ShortSeparator.Foreground(ColorDim),
+
+		FullKey:       base.FullKey,
+		FullDesc:      base.FullDesc,
+		FullSeparator: base.FullSeparator,
+	}
+}
 
 type ItemMarker = lipgloss.Style
 

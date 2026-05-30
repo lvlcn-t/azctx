@@ -74,6 +74,9 @@ func (b listBuilder) Build() list.Model { //nolint:gocritic // irrelevant on sta
 	l.SetShowStatusBar(b.statusBar)
 	l.SetShowHelp(b.help)
 	l.SetFilteringEnabled(b.filtering)
+	if b.help {
+		l.Help.Styles = styles.NewHelpStyles()
+	}
 	if b.shortHelp != nil {
 		l.AdditionalShortHelpKeys = b.shortHelp
 	}
