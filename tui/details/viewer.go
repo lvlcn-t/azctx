@@ -5,36 +5,40 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/lvlcn-t/azctx/tui/control"
+	"github.com/lvlcn-t/azctx/tui/keys"
 	"github.com/lvlcn-t/azctx/tui/state"
 	"github.com/lvlcn-t/azctx/tui/styles"
 )
 
 type Viewer struct {
 	state *state.UI
+	keys  viewerKeys
+}
+
+type viewerKeys struct {
+	Close key.Binding
+	Quit  key.Binding
 }
 
 func NewViewer(s *state.UI) Viewer {
 	return Viewer{
 		state: s,
+		keys: viewerKeys{
+			Close: keys.New(keys.Escape).WithHelp("close").WithAliases(keys.Quit).Bind(),
+			Quit:  keys.New(keys.CtrlC).WithHelp("quit").Bind(),
+		},
 	}
 }
 
 func (d *Viewer) Update(msg tea.Msg) (Viewer, tea.Cmd) {
-	trigger := control.New(msg, d.state.Mode(), func(k control.Key) (control.Trigger, bool) {
-		if k == control.KeyQuit {
-			return control.Trigger{Event: control.EventClose, Msg: msg}, true
-		}
-		return control.Trigger{}, false
-	})
-
-	switch trigger.Event {
-	case control.EventClose:
+	switch {
+	case keys.Matches(msg, d.keys.Close):
 		d.state.Transition(state.Tabs)
 		return *d, nil
-	case control.EventQuit:
+	case keys.Matches(msg, d.keys.Quit):
 		return *d, d.state.Quit()
 	}
 	return *d, nil

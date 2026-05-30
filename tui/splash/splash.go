@@ -6,7 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/lvlcn-t/azctx/tui/control"
+	"github.com/lvlcn-t/azctx/tui/keys"
 	"github.com/lvlcn-t/azctx/tui/state"
 	"github.com/lvlcn-t/azctx/tui/styles"
 )
@@ -106,7 +106,7 @@ func (m *Model) View() string {
 
 // Update updates any internal state of the splash screen.
 func (s *Model) Update(msg tea.Msg) (Model, tea.Cmd) {
-	if control.KeyCtrlC.Matches(msg) {
+	if keys.Matches(msg, keys.CtrlC) {
 		return *s, s.state.Quit()
 	}
 	return *s, nil

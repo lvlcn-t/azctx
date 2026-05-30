@@ -3,10 +3,11 @@ package tabs
 import (
 	"strings"
 
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/lvlcn-t/azctx/tui/control"
 	"github.com/lvlcn-t/azctx/tui/details"
+	"github.com/lvlcn-t/azctx/tui/keys"
 	"github.com/lvlcn-t/azctx/tui/state"
 	"github.com/lvlcn-t/azctx/tui/styles"
 )
@@ -14,8 +15,9 @@ import (
 // Tabs is the main UI component that manages the different tabs and their content.
 type Tabs struct {
 	item    details.Item
-	details details.Viewer
 	state   *state.UI
+	keys    tabKeys
+	details details.Viewer
 	tabs    []Tab
 	active  int
 }
@@ -25,6 +27,7 @@ func New(s *state.UI) *Tabs {
 	t := &Tabs{
 		state:   s,
 		details: details.NewViewer(s),
+		keys:    newTabKeys(key.Binding{}, key.Binding{}, key.Binding{}),
 	}
 	w, h := t.tabSize()
 	l := newList(w, h)
@@ -71,27 +74,26 @@ func (t *Tabs) Update(msg tea.Msg) tea.Cmd {
 		return cmd
 	}
 
-	trigger := control.New(msg, t.state.Mode())
 	// If the active list is filtering, do not treat keys as global shortcuts.
 	if t.tabs[t.active].Filtering() {
-		action, cmd := t.tabs[t.active].Update(trigger)
+		action, cmd := t.tabs[t.active].Update(msg)
 		return tea.Batch(cmd, t.handleAction(action))
 	}
 
-	switch trigger.Event {
-	case control.EventNext:
+	switch {
+	case keys.Matches(msg, t.keys.Next):
 		t.next()
 		return nil
 
-	case control.EventPrev:
+	case keys.Matches(msg, t.keys.Prev):
 		t.prev()
 		return nil
 
-	case control.EventQuit:
+	case keys.Matches(msg, t.keys.Quit):
 		return t.state.Quit()
 	}
 
-	action, cmd := t.tabs[t.active].Update(trigger)
+	action, cmd := t.tabs[t.active].Update(msg)
 	return tea.Batch(cmd, t.handleAction(action))
 }
 
