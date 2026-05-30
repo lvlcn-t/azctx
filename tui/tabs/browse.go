@@ -19,6 +19,8 @@ func newBrowseTab(l listBuilder) browseTab { //nolint:gocritic // irrelevant on 
 			ShowStatusBar(true).
 			ShowHelp(true).
 			EnableFiltering(true).
+			WithShortHelp(control.BrowseTabHelp()).
+			WithFullHelp(control.BrowseTabHelp()).
 			Build(),
 	}
 }

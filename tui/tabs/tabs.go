@@ -110,11 +110,7 @@ func (t *Tabs) View() string {
 	tabs := t.renderTabs()
 	content := t.tabs[t.active].View()
 
-	// Help bar
-	// helpBar := " " + m.helpModel.View(m.keyMap)
-	helpBar := ""
-
-	return lipgloss.JoinVertical(lipgloss.Left, title, tabs, content, helpBar)
+	return lipgloss.JoinVertical(lipgloss.Left, title, tabs, content)
 }
 
 func (t *Tabs) handleAction(action TabAction) tea.Cmd {

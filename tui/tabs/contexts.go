@@ -21,6 +21,8 @@ func contextsTab(s *state.UI, l listBuilder) *ContextsTab { //nolint:gocritic //
 			ShowStatusBar(true).
 			ShowHelp(true).
 			EnableFiltering(true).
+			WithShortHelp(control.InteractiveTabHelp(s.Mode())).
+			WithFullHelp(control.InteractiveTabHelp(s.Mode())).
 			Build(),
 		state: s,
 	}

@@ -1,6 +1,9 @@
 package control
 
-import "github.com/charmbracelet/bubbles/key"
+import (
+	"github.com/charmbracelet/bubbles/key"
+	"github.com/lvlcn-t/azctx/tui/state"
+)
 
 type Key string
 
@@ -45,6 +48,45 @@ func (k Key) String() string {
 	return string(k)
 }
 
-func (k Key) Binding(helpText string) key.Binding {
-	return key.NewBinding(key.WithKeys(k.String()), key.WithHelp(k.String(), helpText))
+// Binding creates a [key.Binding] for the given Key, with optional aliases and help text.
+func (k Key) Binding(helpText string, aliases ...Key) key.Binding {
+	keys := []string{k.String()}
+	for _, alias := range aliases {
+		keys = append(keys, alias.String())
+	}
+	return key.NewBinding(key.WithKeys(keys...), key.WithHelp(k.String(), helpText))
+}
+
+// TabHelp returns the common key bindings for navigating between tabs.
+func TabHelp() func() []key.Binding {
+	return func() []key.Binding {
+		return []key.Binding{
+			KeyL.Binding("next", KeyTab, KeyRight),
+			KeyH.Binding("prev", KeyShiftTab, KeyLeft),
+		}
+	}
+}
+
+// InteractiveTabHelp returns key bindings for interactive tabs, which include both navigation and selection/viewing actions.
+func InteractiveTabHelp(m state.Mode) func() []key.Binding {
+	return func() []key.Binding {
+		if m == state.ModeBrowse {
+			return BrowseTabHelp()()
+		}
+
+		return append(
+			[]key.Binding{KeyEnter.Binding("select", KeyUse)},
+			TabHelp()()...,
+		)
+	}
+}
+
+// BrowseTabHelp returns key bindings for browse mode tabs, which prioritize viewing.
+func BrowseTabHelp() func() []key.Binding {
+	return func() []key.Binding {
+		return append(
+			[]key.Binding{KeyEnter.Binding("view", KeyView, KeyDescribe)},
+			TabHelp()()...,
+		)
+	}
 }

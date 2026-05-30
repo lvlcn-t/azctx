@@ -39,6 +39,8 @@ func New(msg tea.Msg, mode state.Mode, overrides ...KeyOverride) Trigger {
 			return Trigger{Event: EventView, Msg: msg}
 		}
 		return Trigger{Event: EventSelect, Msg: msg}
+	case KeyUse:
+		return Trigger{Event: EventSelect, Msg: msg}
 	case KeyView, KeyDescribe:
 		return Trigger{Event: EventView, Msg: msg}
 	case KeyEscape:
