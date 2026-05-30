@@ -21,7 +21,7 @@ type App struct {
 	splash splash.Model
 
 	// tabs holds all the different tab models for the main app view.
-	tabs tabs.Tabs
+	tabs *tabs.Tabs
 }
 
 func NewApp(store *config.Store, mode state.Mode) *App {
@@ -70,23 +70,21 @@ func (app *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return app.enter(msg)
 	}
 
-	if app.state.Current() == state.Splash {
+	if app.state.Is(state.Splash) {
 		var cmd tea.Cmd
 		app.splash, cmd = app.splash.Update(msg)
 		return app, cmd
 	}
 
-	var cmd tea.Cmd
-	app.tabs, cmd = app.tabs.Update(msg)
-	return app, cmd
+	return app, app.tabs.Update(msg)
 }
 
 func (app *App) View() string {
-	if app.state.Quitting() {
+	if app.state.Is(state.Quitting) {
 		return ""
 	}
 
-	if app.state.Current() == state.Splash {
+	if app.state.Is(state.Splash) {
 		return app.splash.View()
 	}
 
@@ -95,8 +93,7 @@ func (app *App) View() string {
 
 func (app *App) enter(msg splash.Done) (tea.Model, tea.Cmd) {
 	if msg.Err != nil {
-		app.state.QuitNow()
-		return app, tea.Quit
+		return app, app.state.Quit()
 	}
 
 	// TODO: create help keybinding map

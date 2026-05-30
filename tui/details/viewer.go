@@ -35,8 +35,7 @@ func (d *Viewer) Update(msg tea.Msg) (Viewer, tea.Cmd) {
 		d.state.Transition(state.Tabs)
 		return *d, nil
 	case control.EventQuit:
-		d.state.QuitNow()
-		return *d, tea.Quit
+		return *d, d.state.Quit()
 	}
 	return *d, nil
 }

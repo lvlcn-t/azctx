@@ -19,4 +19,6 @@ const (
 	Tabs
 	// DetailView is the overlay view showing details of a selected item.
 	DetailView
+	// Quitting is the state when the TUI is in the process of exiting.
+	Quitting
 )

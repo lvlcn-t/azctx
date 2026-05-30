@@ -23,8 +23,8 @@ type Tabs struct {
 }
 
 // New creates a new Tabs component with the given state.
-func New(s *state.UI) Tabs {
-	t := Tabs{
+func New(s *state.UI) *Tabs {
+	t := &Tabs{
 		state:   s,
 		details: details.NewViewer(s),
 	}
@@ -66,40 +66,39 @@ func (t *Tabs) Init() tea.Cmd {
 	return nil
 }
 
-func (t *Tabs) Update(msg tea.Msg) (Tabs, tea.Cmd) {
-	if t.state.Current() == state.DetailView {
+func (t *Tabs) Update(msg tea.Msg) tea.Cmd {
+	if t.state.Is(state.DetailView) {
 		var cmd tea.Cmd
 		t.details, cmd = t.details.Update(msg)
-		return *t, cmd
+		return cmd
 	}
 
 	trigger := control.New(msg, t.state.Mode())
 	// If the active list is filtering, do not treat keys as global shortcuts.
 	if t.tabs[t.active].Filtering() {
 		action, cmd := t.tabs[t.active].Update(trigger)
-		return *t, tea.Batch(cmd, t.handleAction(action))
+		return tea.Batch(cmd, t.handleAction(action))
 	}
 
 	switch trigger.Event {
 	case control.EventNext:
 		t.next()
-		return *t, nil
+		return nil
 
 	case control.EventPrev:
 		t.prev()
-		return *t, nil
+		return nil
 
 	case control.EventQuit:
-		t.state.QuitNow()
-		return *t, tea.Quit
+		return t.state.Quit()
 	}
 
 	action, cmd := t.tabs[t.active].Update(trigger)
-	return *t, tea.Batch(cmd, t.handleAction(action))
+	return tea.Batch(cmd, t.handleAction(action))
 }
 
 func (t *Tabs) View() string {
-	if t.state.Current() == state.DetailView {
+	if t.state.Is(state.DetailView) {
 		return t.details.View(t.item)
 	}
 
@@ -161,9 +160,7 @@ func (t *Tabs) handleInteractiveSelect(item details.Item) tea.Cmd {
 	}
 
 	t.state.SelectContext(ctx.Name)
-	t.state.QuitNow()
-
-	return tea.Quit
+	return t.state.Quit()
 }
 
 func (t *Tabs) next() {

@@ -3,6 +3,7 @@ package state
 import (
 	"sync"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lvlcn-t/azctx/config"
 )
 
@@ -14,7 +15,6 @@ type UI struct {
 	mode          Mode
 	state         State
 	width, height int
-	quitting      bool
 }
 
 func New(cfg *config.Store, mode Mode) *UI {
@@ -61,22 +61,17 @@ func (u *UI) Transition(s State) {
 	u.state = s
 }
 
-func (u *UI) Current() State {
-	u.mu.RLock()
-	defer u.mu.RUnlock()
-	return u.state
-}
-
-func (u *UI) QuitNow() {
+func (u *UI) Quit() tea.Cmd {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	u.quitting = true
+	u.state = Quitting
+	return tea.Quit
 }
 
-func (u *UI) Quitting() bool {
+func (u *UI) Is(state State) bool {
 	u.mu.RLock()
 	defer u.mu.RUnlock()
-	return u.quitting
+	return u.state == state
 }
 
 func (u *UI) Context() string {
