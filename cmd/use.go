@@ -5,6 +5,7 @@ import (
 
 	"github.com/lvlcn-t/azctx/config"
 	"github.com/lvlcn-t/azctx/tui"
+	"github.com/lvlcn-t/azctx/tui/state"
 	"github.com/spf13/cobra"
 )
 
@@ -37,22 +38,23 @@ func newUseCmd() *cobra.Command {
 // run executes the use command.
 func (c *useCommand) run(cmd *cobra.Command, args []string) error {
 	var name string
+
+	store, err := c.loader.Load()
+	if err != nil {
+		return err
+	}
+
 	if len(args) > 0 {
 		name = args[0]
 	} else {
-		picked, pickErr := tui.Run(c.loader, tui.ModeInteractive)
-		if pickErr != nil {
-			return pickErr
+		picked, perr := tui.Run(&store, state.ModeInteractive)
+		if perr != nil {
+			return perr
 		}
 		if picked == "" {
 			return nil
 		}
 		name = picked
-	}
-
-	store, err := c.loader.Load()
-	if err != nil {
-		return err
 	}
 
 	if err = c.switcher.switchContext(cmd.Context(), &store, name); err != nil {

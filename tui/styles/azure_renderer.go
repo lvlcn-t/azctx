@@ -1,4 +1,4 @@
-package tui
+package styles
 
 import (
 	"fmt"
@@ -10,27 +10,29 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// itemDelegate is a custom list.ItemDelegate with Azure-inspired styling.
-type itemDelegate struct {
+var _ list.ItemDelegate = (*AzureRenderer)(nil)
+
+// AzureRenderer is a custom list.ItemDelegate with Azure-inspired styling.
+type AzureRenderer struct {
 	selectedStyle lipgloss.Style
 	normalStyle   lipgloss.Style
 	dimStyle      lipgloss.Style
 }
 
-func newItemDelegate() *itemDelegate {
-	return &itemDelegate{
-		selectedStyle: lipgloss.NewStyle().Foreground(colorPrimary).Bold(true),
+func NewAzureDelegate() *AzureRenderer {
+	return &AzureRenderer{
+		selectedStyle: lipgloss.NewStyle().Foreground(ColorPrimary).Bold(true),
 		normalStyle:   lipgloss.NewStyle(),
-		dimStyle:      lipgloss.NewStyle().Foreground(colorDim),
+		dimStyle:      lipgloss.NewStyle().Foreground(ColorDim),
 	}
 }
 
-func (d *itemDelegate) Height() int                         { return 2 }
-func (d *itemDelegate) Spacing() int                        { return 1 }
-func (d *itemDelegate) Update(tea.Msg, *list.Model) tea.Cmd { return nil }
+func (d *AzureRenderer) Height() int                         { return 2 }
+func (d *AzureRenderer) Spacing() int                        { return 1 }
+func (d *AzureRenderer) Update(tea.Msg, *list.Model) tea.Cmd { return nil }
 
 //nolint:gocritic // Render signature is required by list.ItemDelegate interface.
-func (d *itemDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
+func (d *AzureRenderer) Render(w io.Writer, m list.Model, index int, item list.Item) {
 	type titled interface {
 		Title() string
 		Description() string

@@ -39,8 +39,8 @@ func TestParseCredentialType(t *testing.T) {
 
 func TestCredentialValidate(t *testing.T) {
 	tests := []struct {
-		name    string
 		input   Credential
+		name    string
 		wantErr bool
 	}{
 		{

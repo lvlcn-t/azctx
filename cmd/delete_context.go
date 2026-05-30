@@ -8,8 +8,8 @@ import (
 )
 
 type deleteCtxCmd struct {
-	loader config.Loader
 	writer config.Writer
+	loader config.Loader
 }
 
 // newDeleteCtxCmd removes a context entry from config.

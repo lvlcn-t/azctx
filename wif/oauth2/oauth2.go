@@ -29,14 +29,14 @@ const (
 // Provider performs the OAuth2 authorization code flow with OIDC discovery
 // to obtain an id_token for Azure workload identity federation.
 type Provider struct {
-	callback     http.Server
 	cfg          oauth2.Config
 	listener     net.Listener
 	mux          *http.ServeMux
 	provider     *oidc.Provider
-	codeVerifier string
 	cache        *cache
+	codeVerifier string
 	cacheKey     string
+	callback     http.Server
 }
 
 // NewProvider initializes an OIDC provider via discovery and prepares a

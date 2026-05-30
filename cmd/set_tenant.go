@@ -8,8 +8,8 @@ import (
 )
 
 type setTenantCommand struct {
-	loader config.Loader
 	writer config.Writer
+	loader config.Loader
 }
 
 // newSetTenantCmd creates or updates a tenant entry in config.

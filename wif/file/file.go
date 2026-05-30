@@ -13,8 +13,8 @@ import (
 
 // Provider reads a federated identity token from a file.
 type Provider struct {
-	path string
 	fsys afero.Fs
+	path string
 }
 
 // ErrMissingFilePath indicates that the file token source config is missing a required file path.

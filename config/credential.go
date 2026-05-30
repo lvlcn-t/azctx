@@ -8,7 +8,7 @@ import (
 )
 
 // Credential represents a named Azure credential definition.
-type Credential struct {
+type Credential struct { //nolint:govet,nolintlint // field alignment is intentional
 	Name    string            `yaml:"name" json:"name"`
 	Details CredentialDetails `yaml:"credential" json:"credential"`
 }
@@ -52,9 +52,9 @@ var ErrCredentialTypeRequired = errors.New("credential type is required")
 
 // CredentialDetails represents the details of an Azure credential.
 type CredentialDetails struct {
-	Type  CredentialType  `yaml:"type" json:"type"`
-	Azure AzureCredential `yaml:"azure,omitempty" json:"azure,omitzero"`
 	Token TokenDetails    `yaml:"token,omitempty" json:"token,omitzero"`
+	Azure AzureCredential `yaml:"azure,omitempty" json:"azure,omitzero"`
+	Type  CredentialType  `yaml:"type" json:"type"`
 }
 
 // AzureCredential represents Azure auth details for a credential.
@@ -76,9 +76,9 @@ const (
 
 // TokenDetails represents auth token retrieval details for a credential.
 type TokenDetails struct {
-	Source TokenSource   `yaml:"source" json:"source"`
 	OAuth2 *OAuth2Source `yaml:"oauth2,omitempty" json:"oauth2,omitempty"`
 	File   *FileSource   `yaml:"file,omitempty" json:"file,omitempty"`
+	Source TokenSource   `yaml:"source" json:"source"`
 }
 
 // FileSource represents a file-based token source.
@@ -127,9 +127,9 @@ func (p PKCE) String() string {
 type OAuth2Source struct {
 	Issuer      string   `yaml:"issuer" json:"issuer"`
 	ClientID    string   `yaml:"client-id" json:"clientId"`
-	Scopes      []string `yaml:"scopes" json:"scopes"`
 	RedirectURI string   `yaml:"redirect-uri,omitempty" json:"redirectUri,omitempty"`
 	PKCE        PKCE     `yaml:"pkce,omitempty" json:"pkce,omitempty"`
+	Scopes      []string `yaml:"scopes" json:"scopes"`
 }
 
 // Validate validates credential data for the selected credential type.
