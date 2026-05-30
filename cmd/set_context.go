@@ -8,8 +8,8 @@ import (
 )
 
 type setCtxCmd struct {
-	loader config.Loader
 	writer config.Writer
+	loader config.Loader
 }
 
 // newSetCtxCmd creates or updates a context entry in config.

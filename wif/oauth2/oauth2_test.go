@@ -119,13 +119,13 @@ func TestAwaitCallback(t *testing.T) {
 			// Make the callback request in a goroutine since awaitCallback blocks.
 			ctx := t.Context()
 			type result struct {
-				code string
 				err  error
+				code string
 			}
 			resultCh := make(chan result, 1)
 			go func() {
 				code, err := p.awaitCallback(ctx, validState, serverErr)
-				resultCh <- result{code, err}
+				resultCh <- result{code: code, err: err}
 			}()
 
 			// Poll until awaitCallback has registered its handler (not 404).
@@ -178,10 +178,10 @@ func TestAwaitCallback_ServerDied(t *testing.T) {
 
 func TestExchangeForIDToken(t *testing.T) {
 	tests := []struct {
-		name       string
 		response   map[string]any
-		statusCode int
+		name       string
 		wantToken  string
+		statusCode int
 		wantErr    bool
 	}{
 		{

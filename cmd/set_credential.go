@@ -8,8 +8,8 @@ import (
 )
 
 type setCredentialCmd struct {
-	loader config.Loader
 	writer config.Writer
+	loader config.Loader
 }
 
 // newSetCredentialCmd creates or updates a credential entry in config.

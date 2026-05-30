@@ -16,12 +16,12 @@ type App struct {
 	// state holds the global state of the TUI, including configuration and UI dimensions.
 	state *state.UI
 
+	// tabs holds all the different tab models for the main app view.
+	tabs *tabs.Tabs
+
 	// splash is the initial view shown when the TUI starts, showing the
 	// config loading status and welcome message.
 	splash splash.Model
-
-	// tabs holds all the different tab models for the main app view.
-	tabs *tabs.Tabs
 }
 
 func NewApp(store *config.Store, mode state.Mode) *App {

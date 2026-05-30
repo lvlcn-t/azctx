@@ -8,13 +8,13 @@ import (
 )
 
 type UI struct {
-	mu sync.RWMutex
-
-	context       string
-	config        *config.Store
-	mode          Mode
-	state         State
-	width, height int
+	config  *config.Store
+	context string
+	mode    Mode
+	state   State
+	width   int
+	height  int
+	mu      sync.RWMutex
 }
 
 func New(cfg *config.Store, mode Mode) *UI {

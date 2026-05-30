@@ -13,13 +13,11 @@ import (
 
 // Tabs is the main UI component that manages the different tabs and their content.
 type Tabs struct {
-	tabs []Tab
-	// details is the overlay model for showing detailed information about a selected item.
-	details details.Viewer
 	item    details.Item
-
-	active int
-	state  *state.UI
+	details details.Viewer
+	state   *state.UI
+	tabs    []Tab
+	active  int
 }
 
 // New creates a new Tabs component with the given state.

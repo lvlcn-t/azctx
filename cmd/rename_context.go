@@ -8,8 +8,8 @@ import (
 )
 
 type renameCtxCmd struct {
-	loader config.Loader
 	writer config.Writer
+	loader config.Loader
 }
 
 // newRenameCtxCmd renames an existing context entry in config.

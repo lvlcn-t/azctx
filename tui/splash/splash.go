@@ -23,8 +23,8 @@ func New(s *state.UI) Model {
 }
 
 type Done struct {
-	LoadedConfig bool
 	Err          error
+	LoadedConfig bool
 }
 
 // Init starts the splash lifecycle and emits Done once the config load and minimum display time complete.

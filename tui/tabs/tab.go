@@ -15,8 +15,8 @@ type Tab interface {
 }
 
 type TabAction struct {
-	Kind TabActionKind
 	Item details.Item
+	Kind TabActionKind
 }
 
 type TabActionKind int

@@ -40,8 +40,8 @@ func TestParseFormat(t *testing.T) {
 
 func TestPrintJSON(t *testing.T) {
 	tests := []struct {
-		name  string
 		input any
+		name  string
 	}{
 		{name: "map", input: map[string]any{"b": 2, "a": 1}},
 		{name: "slice", input: []string{"one", "two"}},

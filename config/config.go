@@ -13,7 +13,7 @@ const (
 )
 
 // Config is the root azctx configuration document.
-type Config struct {
+type Config struct { //nolint:govet // field alignment is intentional
 	APIVersion     semver.Version `yaml:"apiVersion" json:"apiVersion"`
 	Kind           string         `yaml:"kind" json:"kind"`
 	Tenants        []Tenant       `yaml:"tenants" json:"tenants"`

@@ -30,13 +30,13 @@ const (
 )
 
 type cacheEntry struct {
-	IDToken   string    `json:"id_token"`
 	ExpiresAt time.Time `json:"expires_at"`
+	IDToken   string    `json:"id_token"`
 }
 
 type cache struct {
-	mu   sync.Mutex
 	path string
+	mu   sync.Mutex
 }
 
 func newCache(dir string) *cache {

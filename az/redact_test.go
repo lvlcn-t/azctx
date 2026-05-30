@@ -9,8 +9,8 @@ import (
 func TestRedactArgs(t *testing.T) {
 	tests := []struct {
 		name string
-		args []string
 		want string
+		args []string
 	}{
 		{
 			name: "password redacted",

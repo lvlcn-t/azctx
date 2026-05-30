@@ -6,13 +6,14 @@ import (
 )
 
 type listBuilder struct {
-	items         []list.Item
-	delegate      list.ItemDelegate
-	title         string
-	width, height int
-	statusBar     bool
-	help          bool
-	filtering     bool
+	delegate  list.ItemDelegate
+	title     string
+	items     []list.Item
+	width     int
+	height    int
+	statusBar bool
+	help      bool
+	filtering bool
 }
 
 func newList(width, height int) listBuilder {

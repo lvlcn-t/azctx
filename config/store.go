@@ -4,20 +4,19 @@ import "cmp"
 
 // Store is the fully loaded and indexed azctx config state.
 type Store struct {
-	Config    Config
-	Paths     []string
-	WritePath string
-
-	fileConfigs map[string]Config
 	sources     sourceIndex
+	fileConfigs map[string]Config
+	Config      Config
+	WritePath   string
+	Paths       []string
 }
 
 // sourceIndex tracks the source file for each merged stanza.
 type sourceIndex struct {
-	CurrentContext string
 	Tenants        map[string]string
 	Credentials    map[string]string
 	Contexts       map[string]string
+	CurrentContext string
 }
 
 // FileConfig returns the parsed config for one source path.

@@ -129,8 +129,8 @@ func TestValidateContextReferences(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		context Context
 		wantErr string
+		context Context
 	}{
 		{
 			name:    "valid",

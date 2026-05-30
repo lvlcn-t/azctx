@@ -55,13 +55,13 @@ type CLI interface {
 }
 
 type client struct {
-	azVersion            semver.Version
 	credential           *config.Credential
+	kvResolver           *keyvault.Resolver
+	azVersion            semver.Version
 	tenantID             string
 	subscriptionID       string
 	federatedToken       string
 	allowNoSubscriptions bool
-	kvResolver           *keyvault.Resolver
 }
 
 func NewClient(ctx context.Context) (CLI, error) {

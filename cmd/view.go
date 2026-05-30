@@ -9,8 +9,8 @@ import (
 )
 
 type viewCommand struct {
-	loader config.Loader
 	writer config.Writer
+	loader config.Loader
 }
 
 // newViewCmd renders merged azctx config.

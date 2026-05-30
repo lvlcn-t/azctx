@@ -11,8 +11,8 @@ import (
 )
 
 type getCmd struct {
-	loader config.Loader
 	az     func(ctx context.Context) (az.CLI, error)
+	loader config.Loader
 }
 
 // newGetCmd prints details for one context.
