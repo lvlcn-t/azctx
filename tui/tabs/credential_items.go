@@ -36,7 +36,24 @@ func (i *CredentialItem) Description() string {
 	}
 	return desc
 }
-func (i *CredentialItem) FilterValue() string { return i.Name }
+
+func (i *CredentialItem) FilterValue() string {
+	typ := i.Credential.Details.Type
+	d := []string{i.Name, typ.String()}
+	switch typ {
+	case config.CredentialTypeServicePrincipal, config.CredentialTypeManagedIdentity:
+		d = append(d, i.Credential.Details.Azure.ClientID)
+	case config.CredentialTypeWorkloadIdentity:
+		d = append(d, []string{
+			i.Credential.Details.Azure.ClientID,
+			i.Credential.Details.Token.Source.String(),
+			i.Credential.Details.Token.OAuth2.Issuer,
+			i.Credential.Details.Token.OAuth2.ClientID,
+			strings.Join(i.Credential.Details.Token.OAuth2.Scopes, " "),
+		}...)
+	}
+	return strings.Join(d, " ")
+}
 
 func (i *CredentialItem) Details() details.View {
 	return details.View{

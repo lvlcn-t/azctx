@@ -2,6 +2,7 @@ package tabs
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/lvlcn-t/azctx/config"
@@ -60,7 +61,7 @@ func (i *ContextItem) Description() string {
 }
 
 func (i *ContextItem) FilterValue() string {
-	return i.Name
+	return strings.Join([]string{i.Name, i.Subscription, i.Tenant.Name, i.Credential.Name}, " ")
 }
 
 func (i *ContextItem) Details() details.View {

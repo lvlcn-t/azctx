@@ -67,6 +67,10 @@ type AzureCredential struct {
 // TokenSource identifies the source of auth tokens for a credential.
 type TokenSource string
 
+func (t TokenSource) String() string {
+	return string(t)
+}
+
 const (
 	// TokenSourceFile indicates tokens are sourced from a file.
 	TokenSourceFile TokenSource = "file"

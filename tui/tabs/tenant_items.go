@@ -25,7 +25,9 @@ func tenantItems(s *config.Store) []list.Item {
 
 func (i *TenantItem) Title() string       { return i.Name }
 func (i *TenantItem) Description() string { return i.Tenant.Details.ID }
-func (i *TenantItem) FilterValue() string { return i.Name }
+func (i *TenantItem) FilterValue() string {
+	return i.Name + " " + i.Tenant.Details.ID
+}
 
 func (i *TenantItem) Details() details.View {
 	return details.View{
