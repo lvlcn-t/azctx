@@ -80,7 +80,8 @@ func TestCredentialValidate(t *testing.T) {
 		},
 		{
 			name: "workload identity missing token file path",
-			input: newCredential(t,
+			input: newCredential(
+				t,
 				"wi-missing-file",
 				CredentialTypeWorkloadIdentity,
 				withTokenSource(TokenSourceFile),
@@ -90,7 +91,8 @@ func TestCredentialValidate(t *testing.T) {
 		},
 		{
 			name: "workload identity with invalid token source",
-			input: newCredential(t,
+			input: newCredential(
+				t,
 				"wi-invalid-source",
 				CredentialTypeWorkloadIdentity,
 				withTokenSource("invalid-source"),

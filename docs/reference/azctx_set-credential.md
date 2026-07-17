@@ -26,7 +26,11 @@ azctx set-credential NAME [flags]
       --client-secret string             Client secret
       --federated-token-file string      Path to federated token file
   -h, --help                             help for set-credential
-      --type string                      Credential type: service-principal|user|managed-identity|oidc
+      --issuer string                    OIDC issuer URL
+      --oidc-client-id string            OIDC client ID
+      --redirect-uri string              OIDC redirect URI
+      --scopes strings                   OIDC scopes
+      --type string                      Credential type: service-principal|user|managed-identity|workload-identity
 ```
 
 ### SEE ALSO

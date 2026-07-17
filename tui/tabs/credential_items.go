@@ -113,7 +113,8 @@ func (i *CredentialItem) workloadIdentityRows() []details.Row {
 	case config.TokenSourceFile:
 		rows = append(rows, details.Row{Label: "Token File", Value: i.Credential.Details.Token.File.Path})
 	case config.TokenSourceOAuth2:
-		rows = append(rows,
+		rows = append(
+			rows,
 			details.Row{Label: "OAuth Issuer", Value: i.Credential.Details.Token.OAuth2.Issuer},
 			details.Row{Label: "OAuth Client ID", Value: i.Credential.Details.Token.OAuth2.ClientID},
 			details.Row{Label: "OAuth Scopes", Value: fmt.Sprintf("[%s]", strings.Join(i.Credential.Details.Token.OAuth2.Scopes, " "))},

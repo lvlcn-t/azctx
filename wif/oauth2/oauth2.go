@@ -169,7 +169,8 @@ func (p *Provider) promptAuthorization(ctx context.Context, state string) {
 	opts := []oauth2.AuthCodeOption{}
 	if p.codeVerifier != "" {
 		challenge := s256Challenge(p.codeVerifier)
-		opts = append(opts,
+		opts = append(
+			opts,
 			oauth2.SetAuthURLParam("code_challenge", challenge),
 			oauth2.SetAuthURLParam("code_challenge_method", "S256"),
 		)

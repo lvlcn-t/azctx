@@ -153,7 +153,8 @@ func (c *client) login(ctx context.Context) error {
 // loginServicePrincipal performs az login with a service principal credential.
 func (c *client) loginServicePrincipal(ctx context.Context) error {
 	args := c.baseArgs()
-	args = append(args,
+	args = append(
+		args,
 		flagServicePrincipal,
 		flagUsername, c.credential.Details.Azure.ClientID,
 		flagTenant, c.tenantID,
@@ -238,7 +239,8 @@ func (c *client) loginWithWorkloadIdentity(ctx context.Context) error {
 	}
 
 	args := c.baseArgs()
-	args = append(args,
+	args = append(
+		args,
 		flagServicePrincipal,
 		flagUsername, c.credential.Details.Azure.ClientID,
 		flagTenant, c.tenantID,
