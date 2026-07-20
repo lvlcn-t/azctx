@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"os"
 )
 
 // Credential represents a named Azure credential definition.
@@ -183,8 +182,6 @@ func (token *TokenDetails) Validate() error {
 	if token.Source == "" {
 		return errors.New("token source is required")
 	}
-
-	fmt.Fprintf(os.Stdout, "Validating token source: %s\n", token.Source)
 
 	switch token.Source {
 	case TokenSourceFile:
