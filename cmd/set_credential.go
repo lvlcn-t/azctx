@@ -10,6 +10,7 @@ import (
 type setCredentialCmd struct {
 	writer config.Writer
 	loader config.Loader
+	flags  credentialFlagsInput
 }
 
 type credentialFlagsInput struct {
@@ -43,15 +44,18 @@ func newSetCredentialCmd() *cobra.Command {
 		Args:              cobra.ExactArgs(1),
 	}
 
-	cmd.Flags().String("type", "", "Credential type: service-principal|user|managed-identity|workload-identity")
-	cmd.Flags().String("client-id", "", "Client ID")
-	cmd.Flags().String("client-secret", "", "Client secret")
-	cmd.Flags().String("client-certificate-path", "", "Client certificate path")
-	cmd.Flags().String("federated-token-file", "", "Path to federated token file")
-	cmd.Flags().String("issuer", "", "OIDC issuer URL")
-	cmd.Flags().String("oidc-client-id", "", "OIDC client ID")
-	cmd.Flags().String("redirect-uri", "", "OIDC redirect URI")
-	cmd.Flags().StringSlice("scopes", []string{}, "OIDC scopes")
+	flags := &command.flags
+
+	// TODO: Consider handling the conversion outside of the flag parsing.
+	cmd.Flags().StringVar((*string)(&flags.credType), "type", "", "Credential type: service-principal|user|managed-identity|workload-identity")
+	cmd.Flags().StringVar(&flags.clientID, "client-id", "", "Client ID")
+	cmd.Flags().StringVar(&flags.clientSecret, "client-secret", "", "Client secret")
+	cmd.Flags().StringVar(&flags.certPath, "client-certificate-path", "", "Client certificate path")
+	cmd.Flags().StringVar(&flags.fedTokenFile, "federated-token-file", "", "Path to federated token file")
+	cmd.Flags().StringVar(&flags.issuer, "issuer", "", "OIDC issuer URL")
+	cmd.Flags().StringVar(&flags.oidcClientID, "oidc-client-id", "", "OIDC client ID")
+	cmd.Flags().StringVar(&flags.redirectURI, "redirect-uri", "", "OIDC redirect URI")
+	cmd.Flags().StringSliceVar(&flags.scopes, "scopes", []string{}, "OIDC scopes")
 
 	if err := cmd.MarkFlagRequired("type"); err != nil {
 		panic(fmt.Errorf("mark type flag required: %w", err))
@@ -72,12 +76,7 @@ func (c *setCredentialCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("credential name must not be empty")
 	}
 
-	input, err := readCredentialFlags(cmd)
-	if err != nil {
-		return err
-	}
-
-	source, err := input.resolveTokenSource()
+	source, err := c.flags.resolveTokenSource()
 	if err != nil {
 		return err
 	}
@@ -85,22 +84,22 @@ func (c *setCredentialCmd) run(cmd *cobra.Command, args []string) error {
 	nextCredential := config.Credential{
 		Name: credName,
 		Details: config.CredentialDetails{
-			Type: input.credType,
+			Type: c.flags.credType,
 			Azure: config.AzureCredential{
-				ClientID:              input.clientID,
-				ClientSecret:          input.clientSecret,
-				ClientCertificatePath: input.certPath,
+				ClientID:              c.flags.clientID,
+				ClientSecret:          c.flags.clientSecret,
+				ClientCertificatePath: c.flags.certPath,
 			},
 			Token: config.TokenDetails{
 				Source: source,
 				File: &config.FileSource{
-					Path: input.fedTokenFile,
+					Path: c.flags.fedTokenFile,
 				},
 				OAuth2: &config.OAuth2Source{
-					Issuer:      input.issuer,
-					ClientID:    input.oidcClientID,
-					RedirectURI: input.redirectURI,
-					Scopes:      input.scopes,
+					Issuer:      c.flags.issuer,
+					ClientID:    c.flags.oidcClientID,
+					RedirectURI: c.flags.redirectURI,
+					Scopes:      c.flags.scopes,
 				},
 			},
 		},
@@ -129,62 +128,6 @@ func (c *setCredentialCmd) run(cmd *cobra.Command, args []string) error {
 
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Credential %q created.\n", credName)
 	return err
-}
-
-func readCredentialFlags(cmd *cobra.Command) (credentialFlagsInput, error) {
-	var input credentialFlagsInput
-
-	typeRaw, err := cmd.Flags().GetString("type")
-	if err != nil {
-		return input, fmt.Errorf("read type flag %w", err)
-	}
-
-	input.credType, err = config.NewCredentialType(typeRaw)
-	if err != nil {
-		return input, err
-	}
-
-	input.clientID, err = cmd.Flags().GetString("client-id")
-	if err != nil {
-		return input, fmt.Errorf("read client-id flag %w", err)
-	}
-
-	input.clientSecret, err = cmd.Flags().GetString("client-secret")
-	if err != nil {
-		return input, fmt.Errorf("read client-secret flag %w", err)
-	}
-
-	input.certPath, err = cmd.Flags().GetString("client-certificate-path")
-	if err != nil {
-		return input, fmt.Errorf("read client-certificate-path flag %w", err)
-	}
-
-	input.fedTokenFile, err = cmd.Flags().GetString("federated-token-file")
-	if err != nil {
-		return input, fmt.Errorf("read federated-token-file flag %w", err)
-	}
-
-	input.issuer, err = cmd.Flags().GetString("issuer")
-	if err != nil {
-		return input, fmt.Errorf("read issuer flag %w", err)
-	}
-
-	input.oidcClientID, err = cmd.Flags().GetString("oidc-client-id")
-	if err != nil {
-		return input, fmt.Errorf("read client-id flag %w", err)
-	}
-
-	input.redirectURI, err = cmd.Flags().GetString("redirect-uri")
-	if err != nil {
-		return input, fmt.Errorf("read redirect-uri flag %w", err)
-	}
-
-	input.scopes, err = cmd.Flags().GetStringSlice("scopes")
-	if err != nil {
-		return input, fmt.Errorf("read scopes flag: %w", err)
-	}
-
-	return input, nil
 }
 
 func (f *credentialFlagsInput) resolveTokenSource() (config.TokenSource, error) {
