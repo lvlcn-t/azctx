@@ -40,7 +40,8 @@ func (w *Writer) Write(path string, cfg *Config) error {
 		return fmt.Errorf("create config directory %q: %w", parent, err)
 	}
 
-	b, err := yaml.Dump(cfg,
+	b, err := yaml.Dump(
+		cfg,
 		yaml.WithIndent(yamlIndent),
 		yaml.WithCompactSeqIndent(false),
 		yaml.WithLineWidth(yamlLineWidth),
