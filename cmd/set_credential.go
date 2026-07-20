@@ -76,9 +76,9 @@ func (c *setCredentialCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("credential name must not be empty")
 	}
 
-	source, err := c.flags.resolveTokenSource()
-	if err != nil {
-		return err
+	var source config.TokenSource
+	if c.flags.issuer != "" && c.flags.oidcClientID != "" && c.flags.redirectURI != "" && len(c.flags.scopes) > 0 {
+		source = config.TokenSourceOAuth2
 	}
 
 	nextCredential := config.Credential{
@@ -128,29 +128,4 @@ func (c *setCredentialCmd) run(cmd *cobra.Command, args []string) error {
 
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Credential %q created.\n", credName)
 	return err
-}
-
-func (f *credentialFlagsInput) resolveTokenSource() (config.TokenSource, error) {
-	if f.credType != config.CredentialTypeWorkloadIdentity {
-		return config.TokenSourceFile, nil
-	}
-
-	hasFile := f.fedTokenFile != ""
-	hasOIDC := f.hasOIDCParams()
-
-	switch {
-	case hasFile && hasOIDC:
-		return "", fmt.Errorf("cannot specify both federated-token-file and OIDC parameters for workload identity credential")
-	case hasOIDC:
-		return config.TokenSourceOAuth2, nil
-	case hasFile:
-		return config.TokenSourceFile, nil
-	default:
-		return "", fmt.Errorf("must specify either federated-token-file or all OIDC parameters for workload identity credential")
-	}
-}
-
-func (f *credentialFlagsInput) hasOIDCParams() bool {
-	return f.issuer != "" || f.oidcClientID != "" ||
-		f.redirectURI != "" || len(f.scopes) > 0
 }
