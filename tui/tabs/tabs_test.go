@@ -41,6 +41,12 @@ func baseConfig() *config.Config {
 		Tenants: []config.Tenant{
 			{Name: "corp", Details: config.TenantDetails{ID: "tenant-1"}},
 		},
+		Credentials: []config.Credential{
+			{Name: "user", Details: config.CredentialDetails{Type: config.CredentialTypeUser}},
+		},
+		Contexts: []config.Context{
+			{Name: "dev", Details: config.ContextDetails{Tenant: "corp", Credential: "user"}},
+		},
 	}
 }
 
@@ -91,7 +97,7 @@ func TestTabs_CreateTenant(t *testing.T) {
 	assert.Equal(t, "tenant-9", got.Details.ID)
 }
 
-func TestTabs_EditTenant(t *testing.T) {
+func TestTabs_EditTenant_UpdatesInPlace(t *testing.T) {
 	path := writeConfig(t, baseConfig())
 	tabs := newTenantTabs(t)
 
@@ -100,16 +106,56 @@ func TestTabs_EditTenant(t *testing.T) {
 	require.True(t, tabs.state.Is(state.FormView))
 	require.Equal(t, "corp", tabs.form.Values()["name"])
 
-	// Move to id, clear, set a new id, submit.
-	tabs.Update(tea.KeyMsg{Type: tea.KeyTab})
+	// The name field is locked; typing edits the id field, not the name.
 	tabs.Update(tea.KeyMsg{Type: tea.KeyCtrlU})
 	typeRunes(tabs, "tenant-updated")
+	require.Equal(t, "corp", tabs.form.Values()["name"], "name must stay locked during edit")
 	cmd := tabs.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	drain(tabs, cmd)
 
-	got, found := readConfig(t, path).TenantByName("corp")
+	cfg := readConfig(t, path)
+	// Updated in place: exactly one tenant, with the new id, same name.
+	require.Len(t, cfg.Tenants, 1)
+	assert.Equal(t, "corp", cfg.Tenants[0].Name)
+	assert.Equal(t, "tenant-updated", cfg.Tenants[0].Details.ID)
+}
+
+func TestTabs_RenameTenant_CascadesAndNoDuplicate(t *testing.T) {
+	path := writeConfig(t, baseConfig())
+	tabs := newTenantTabs(t)
+
+	// 'r' opens the rename form.
+	tabs.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
+	require.True(t, tabs.state.Is(state.FormView))
+
+	typeRunes(tabs, "corporate")
+	cmd := tabs.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	drain(tabs, cmd)
+
+	cfg := readConfig(t, path)
+	// Renamed, not duplicated: exactly one tenant under the new name.
+	require.Len(t, cfg.Tenants, 1)
+	assert.Equal(t, "corporate", cfg.Tenants[0].Name)
+
+	// The referencing context was cascaded to the new name.
+	dev, found := cfg.ContextByName("dev")
 	require.True(t, found)
-	assert.Equal(t, "tenant-updated", got.Details.ID)
+	assert.Equal(t, "corporate", dev.Details.Tenant)
+}
+
+func TestTabs_CreateTenant_RejectsDuplicate(t *testing.T) {
+	writeConfig(t, baseConfig())
+	tabs := newTenantTabs(t)
+
+	tabs.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
+	typeRunes(tabs, "corp") // already exists
+	tabs.Update(tea.KeyMsg{Type: tea.KeyTab})
+	typeRunes(tabs, "tenant-2")
+	cmd := tabs.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	drain(tabs, cmd)
+
+	// The write is rejected and surfaced in the status line.
+	assert.Contains(t, tabs.status, "already exists")
 }
 
 func TestTabs_DeleteTenant(t *testing.T) {

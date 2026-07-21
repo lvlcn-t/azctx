@@ -17,9 +17,20 @@ import (
 
 // Manager is the subset of contexts.Manager the tabs use to persist changes.
 type Manager interface {
-	SetTenant(store *config.Store, name, id string) (bool, error)
+	CreateTenant(store *config.Store, name, id string) error
+	UpdateTenant(store *config.Store, name, id string) error
+	RenameTenant(store *config.Store, oldName, newName string) (contexts.RenameResult, error)
 	DeleteTenant(store *config.Store, name string) (contexts.DeleteResult, error)
 }
+
+// formIntent records what a submitted form should do.
+type formIntent int
+
+const (
+	intentCreate formIntent = iota
+	intentEdit
+	intentRename
+)
 
 // Tabs is the main UI component that manages the different tabs and their content.
 type Tabs struct {
@@ -33,6 +44,7 @@ type Tabs struct {
 	details details.Viewer
 	tabs    []Tab
 	form    form.Model
+	intent  formIntent
 	active  int
 }
 
@@ -204,13 +216,19 @@ func (t *Tabs) handleAction(action TabAction) tea.Cmd {
 		return nil
 
 	case TabActionCreate:
-		return t.openForm(nil)
+		return t.openForm(intentCreate, nil)
 
 	case TabActionEdit:
 		if action.Item == nil {
 			return nil
 		}
-		return t.openForm(action.Item)
+		return t.openForm(intentEdit, action.Item)
+
+	case TabActionRename:
+		if action.Item == nil {
+			return nil
+		}
+		return t.openForm(intentRename, action.Item)
 
 	case TabActionDelete:
 		if action.Item == nil {
@@ -223,15 +241,16 @@ func (t *Tabs) handleAction(action TabAction) tea.Cmd {
 	}
 }
 
-// openForm opens a create or edit form for the active tab and records the item
-// to apply on submit (nil for create).
-func (t *Tabs) openForm(item details.Item) tea.Cmd {
-	f, ok := t.buildForm(item)
+// openForm opens a create, edit, or rename form for the active tab and records
+// the intent and target item to apply on submit (nil item for create).
+func (t *Tabs) openForm(intent formIntent, item details.Item) tea.Cmd {
+	f, ok := t.buildForm(intent, item)
 	if !ok {
 		return nil
 	}
 
 	t.form = f
+	t.intent = intent
 	t.pending = item
 	t.status = ""
 	t.state.Transition(state.FormView)
@@ -252,22 +271,52 @@ func (t *Tabs) openDelete(item details.Item) tea.Cmd {
 	return nil
 }
 
-// buildForm returns the form for the active tab, pre-filled from item on edit.
-// The second return is false when the active tab does not support forms yet.
-func (t *Tabs) buildForm(item details.Item) (form.Model, bool) {
+// buildForm returns the form for the active tab and intent, pre-filled from item
+// for edit and rename. The second return is false when the active tab does not
+// support the requested form.
+func (t *Tabs) buildForm(intent formIntent, item details.Item) (form.Model, bool) {
 	if _, ok := t.tabs[t.active].(*TenantsTab); ok {
-		return tenantForm(item), true
+		if intent == intentRename {
+			return renameForm("tenant", item), true
+		}
+		return tenantForm(intent, item), true
 	}
 	return form.Model{}, false
 }
 
-// applyForm persists the submitted form values for the pending action.
+// applyForm persists the submitted form values according to the active tab and
+// recorded intent.
 func (t *Tabs) applyForm(values map[string]string) tea.Cmd {
 	t.state.Transition(state.Tabs)
 
 	// PR2 wires tenants only; contexts and credentials follow.
-	_, err := t.manager.SetTenant(t.state.Config(), values["name"], values["id"])
-	return t.finish(err, "")
+	return t.applyTenantForm(values)
+}
+
+// applyTenantForm maps a submitted tenant form to the matching intent method.
+func (t *Tabs) applyTenantForm(values map[string]string) tea.Cmd {
+	store := t.state.Config()
+
+	switch t.intent {
+	case intentCreate:
+		err := t.manager.CreateTenant(store, values["name"], values["id"])
+		return t.finish(err, "created tenant "+values["name"])
+
+	case intentEdit:
+		err := t.manager.UpdateTenant(store, values["name"], values["id"])
+		return t.finish(err, "updated tenant "+values["name"])
+
+	case intentRename:
+		item, ok := t.pending.(*TenantItem)
+		if !ok {
+			return nil
+		}
+		result, err := t.manager.RenameTenant(store, item.Name, values["name"])
+		return t.finish(err, renameStatus("tenant", item.Name, values["name"], result.UpdatedContexts))
+
+	default:
+		return nil
+	}
 }
 
 // applyDelete performs the pending delete.
@@ -277,8 +326,8 @@ func (t *Tabs) applyDelete() tea.Cmd {
 		return nil
 	}
 
-	_, err := t.manager.DeleteTenant(t.state.Config(), item.Name)
-	return t.finish(err, "deleted tenant "+item.Name)
+	result, err := t.manager.DeleteTenant(t.state.Config(), item.Name)
+	return t.finish(err, deleteStatus("tenant", item.Name, result.OrphanedContexts))
 }
 
 // finish reloads the tabs after a write and records a status message.
@@ -318,6 +367,36 @@ func deletableLabel(item details.Item) (string, bool) {
 		return "tenant " + tenant.Name, true
 	}
 	return "", false
+}
+
+// deleteStatus builds the status line for a delete, warning about orphans.
+func deleteStatus(kind, name string, orphans []string) string {
+	msg := "deleted " + kind + " " + name
+	if len(orphans) > 0 {
+		msg += " (warning: orphaned contexts: " + strings.Join(orphans, ", ") + ")"
+	}
+	return msg
+}
+
+// renameStatus builds the status line for a rename, noting cascaded contexts.
+func renameStatus(kind, oldName, newName string, updated []string) string {
+	msg := "renamed " + kind + " " + oldName + " to " + newName
+	if len(updated) > 0 {
+		msg += " (updated contexts: " + strings.Join(updated, ", ") + ")"
+	}
+	return msg
+}
+
+// renameForm builds a single-field form asking for the entry's new name.
+func renameForm(kind string, item details.Item) form.Model {
+	current := ""
+	if named, ok := item.(interface{ Title() string }); ok {
+		current = named.Title()
+	}
+
+	return form.New("Rename "+kind+" "+current, []form.Field{
+		{Key: "name", Label: "New name", Placeholder: current, Required: true},
+	})
 }
 
 func (t *Tabs) handleInteractiveSelect(item details.Item) tea.Cmd {

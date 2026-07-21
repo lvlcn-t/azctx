@@ -105,6 +105,11 @@ func Edit(item details.Item) TabAction {
 	return TabAction{Kind: TabActionEdit, Item: item}
 }
 
+// Rename requests opening a rename form for item.
+func Rename(item details.Item) TabAction {
+	return TabAction{Kind: TabActionRename, Item: item}
+}
+
 // Delete requests confirmation to delete item.
 func Delete(item details.Item) TabAction {
 	return TabAction{Kind: TabActionDelete, Item: item}

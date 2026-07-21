@@ -40,19 +40,22 @@ func (i *TenantItem) Details() details.View {
 	}
 }
 
-// tenantForm builds the create/edit form for a tenant. When item is a
-// *TenantItem the fields are pre-filled for editing.
-func tenantForm(item details.Item) form.Model {
+// tenantForm builds the create or edit form for a tenant. On edit the name is
+// pre-filled and locked (read-only): the name is the entry's identity and can
+// only be changed through the rename flow, never an update.
+func tenantForm(intent formIntent, item details.Item) form.Model {
 	var name, id string
 	title := "New tenant"
-	if tenant, ok := item.(*TenantItem); ok {
+	readonly := false
+	if tenant, ok := item.(*TenantItem); ok && intent == intentEdit {
 		name = tenant.Name
 		id = tenant.Tenant.Details.ID
 		title = "Edit tenant"
+		readonly = true
 	}
 
 	return form.New(title, []form.Field{
-		{Key: "name", Label: labelName, Placeholder: "corp", Value: name, Required: true},
+		{Key: "name", Label: labelName, Placeholder: "my-tenant", Value: name, Required: true, ReadOnly: readonly},
 		{Key: "id", Label: "ID", Placeholder: "00000000-0000-0000-0000-000000000000", Value: id, Required: true},
 	})
 }
