@@ -10,6 +10,6 @@ type CredentialsTab struct {
 
 func credentialsTab(s *state.UI, l listBuilder) *CredentialsTab { //nolint:gocritic // irrelevant on startup
 	return &CredentialsTab{
-		browseTab: newBrowseTab(s, credentialItems, l),
+		browseTab: newCRUDBrowseTab(s, credentialItems, l),
 	}
 }

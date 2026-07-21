@@ -14,8 +14,9 @@ import (
 
 // Tab positions in New's slice.
 const (
-	contextsTabIndex = 0
-	tenantsTabIndex  = 1
+	contextsTabIndex    = 0
+	tenantsTabIndex     = 1
+	credentialsTabIndex = 2
 )
 
 func writeConfig(t *testing.T, cfg *config.Config) string {
