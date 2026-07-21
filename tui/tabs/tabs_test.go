@@ -12,8 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// tenantsTabIndex is the position of the tenants tab in New's slice.
-const tenantsTabIndex = 1
+// Tab positions in New's slice.
+const (
+	contextsTabIndex = 0
+	tenantsTabIndex  = 1
+)
 
 func writeConfig(t *testing.T, cfg *config.Config) string {
 	t.Helper()
@@ -50,9 +53,10 @@ func baseConfig() *config.Config {
 	}
 }
 
-// newTenantTabs builds a Tabs on the tenants tab, backed by a real manager and
-// the config at the AZCTX path. It sizes the tabs so the list is usable.
-func newTenantTabs(t *testing.T) *Tabs {
+// newTabsOn builds a Tabs positioned on the given tab index, backed by a real
+// manager and the config at the AZCTX path. It sizes the tabs so the list is
+// usable.
+func newTabsOn(t *testing.T, index int) *Tabs {
 	t.Helper()
 
 	loader := config.NewLoader()
@@ -65,9 +69,15 @@ func newTenantTabs(t *testing.T) *Tabs {
 
 	tabs := New(s, contexts.New())
 	tabs.Resize()
-	tabs.active = tenantsTabIndex
+	tabs.active = index
 
 	return tabs
+}
+
+// newTenantTabs builds a Tabs on the tenants tab.
+func newTenantTabs(t *testing.T) *Tabs {
+	t.Helper()
+	return newTabsOn(t, tenantsTabIndex)
 }
 
 func typeRunes(tabs *Tabs, s string) {

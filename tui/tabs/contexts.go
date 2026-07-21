@@ -25,6 +25,10 @@ func contextsTab(s *state.UI, l listBuilder) *ContextsTab { //nolint:gocritic //
 	}
 
 	tk := newTabKeys(sel, view, keys.New(keys.Escape).WithHelp("close").Bind())
+	tk.Create = keys.New(keys.Create).WithHelp("new").Bind()
+	tk.Edit = keys.New(keys.Edit).WithHelp("edit").Bind()
+	tk.Rename = keys.New(keys.Rename).WithHelp("rename").Bind()
+	tk.Delete = keys.New(keys.Delete).WithHelp("delete").Bind()
 	items := contextItems(s.Config())
 	return &ContextsTab{
 		list: l.WithItems(items...).
@@ -62,6 +66,27 @@ func (t *ContextsTab) Update(msg tea.Msg) (TabAction, tea.Cmd) {
 			return NoAction(), nil
 		}
 		return ShowDetails(item), nil
+
+	case keys.Matches(msg, t.keys.Create):
+		return Create(), nil
+
+	case keys.Matches(msg, t.keys.Edit):
+		if item, ok := t.list.SelectedItem().(*ContextItem); ok {
+			return Edit(item), nil
+		}
+		return NoAction(), nil
+
+	case keys.Matches(msg, t.keys.Rename):
+		if item, ok := t.list.SelectedItem().(*ContextItem); ok {
+			return Rename(item), nil
+		}
+		return NoAction(), nil
+
+	case keys.Matches(msg, t.keys.Delete):
+		if item, ok := t.list.SelectedItem().(*ContextItem); ok {
+			return Delete(item), nil
+		}
+		return NoAction(), nil
 
 	case keys.Matches(msg, t.keys.Close):
 		// Catch close events to prevent the list from exiting when the user
