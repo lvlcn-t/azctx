@@ -3,40 +3,23 @@ package cmd
 import (
 	"testing"
 
-	"github.com/lvlcn-t/azctx/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestSetCredentialCreate(t *testing.T) {
-	path := writeConfigForTest(t, baseConfig())
+// TestSetCredentialWiring verifies the cobra glue for set-credential. Validation
+// and CRUD logic is covered in the contexts package.
+func TestSetCredentialWiring(t *testing.T) {
+	writeConfig(t, baseConfig())
 
-	stdout, _, err := executeCommand(
+	stdout, _, err := execCmd(
 		t,
 		newSetCredentialCmd(),
 		"new-sp",
-		"--type",
-		"service-principal",
-		"--client-id",
-		"client-new",
-		"--client-secret",
-		"secret-new",
+		"--type", "service-principal",
+		"--client-id", "client-new",
+		"--client-secret", "secret-new",
 	)
 	require.NoError(t, err)
-
 	assert.Contains(t, stdout, `Credential "new-sp" created.`)
-
-	got := readConfigForTest(t, path)
-	credential, found := got.CredentialByName("new-sp")
-	require.True(t, found)
-	assert.Equal(t, config.CredentialTypeServicePrincipal, credential.Details.Type)
-	assert.Equal(t, "client-new", credential.Details.Azure.ClientID)
-}
-
-func TestSetCredentialInvalidType(t *testing.T) {
-	writeConfigForTest(t, baseConfig())
-
-	_, _, err := executeCommand(t, newSetCredentialCmd(), "bad", "--type", "invalid")
-	require.Error(t, err)
-	assert.ErrorContains(t, err, `unsupported credential type "invalid"`)
 }

@@ -4,19 +4,20 @@ import (
 	"fmt"
 
 	"github.com/lvlcn-t/azctx/config"
+	"github.com/lvlcn-t/azctx/contexts"
 	"github.com/spf13/cobra"
 )
 
 type setTenantCommand struct {
-	writer config.Writer
-	loader config.Loader
+	manager *contexts.Manager
+	loader  config.Loader
 }
 
 // newSetTenantCmd creates or updates a tenant entry in config.
 func newSetTenantCmd() *cobra.Command {
 	command := &setTenantCommand{
-		loader: config.NewLoader(),
-		writer: config.NewWriter(),
+		loader:  config.NewLoader(),
+		manager: contexts.New(),
 	}
 
 	cmd := &cobra.Command{
@@ -45,30 +46,14 @@ func (c *setTenantCommand) run(cmd *cobra.Command, args []string) error {
 	}
 
 	tenantName := args[0]
-	if tenantName == "" {
-		return fmt.Errorf("tenant name must not be empty")
-	}
 
 	tenantID, err := cmd.Flags().GetString("id")
 	if err != nil {
 		return fmt.Errorf("read id flag: %w", err)
 	}
 
-	if tenantID == "" {
-		return fmt.Errorf("tenant id must not be empty")
-	}
-
-	wasExisting := false
-	if _, found := store.Config.TenantByName(tenantName); found {
-		wasExisting = true
-	}
-
-	path := store.PathForTenant(tenantName)
-	cfg := store.FileConfig(path)
-	nextTenant := config.Tenant{Name: tenantName, Details: config.TenantDetails{ID: tenantID}}
-	cfg.UpsertTenant(nextTenant)
-
-	if err = c.writer.Write(path, &cfg); err != nil {
+	wasExisting, err := c.manager.SetTenant(&store, tenantName, tenantID)
+	if err != nil {
 		return err
 	}
 

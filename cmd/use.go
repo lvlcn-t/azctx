@@ -4,21 +4,22 @@ import (
 	"fmt"
 
 	"github.com/lvlcn-t/azctx/config"
+	"github.com/lvlcn-t/azctx/login"
 	"github.com/lvlcn-t/azctx/tui"
 	"github.com/lvlcn-t/azctx/tui/state"
 	"github.com/spf13/cobra"
 )
 
 type useCommand struct {
-	switcher contextSwitcher
-	loader   config.Loader
+	manager *login.Manager
+	loader  config.Loader
 }
 
 // newUseCmd switches the active context and syncs Azure CLI state.
 func newUseCmd() *cobra.Command {
 	command := &useCommand{
-		switcher: newContextSwitcher(),
-		loader:   config.NewLoader(),
+		manager: login.New(),
+		loader:  config.NewLoader(),
 	}
 
 	useCmd := &cobra.Command{ //nolint:exhaustruct // Cobra command definition
@@ -57,7 +58,7 @@ func (c *useCommand) run(cmd *cobra.Command, args []string) error {
 		name = picked
 	}
 
-	if err = c.switcher.switchContext(cmd.Context(), &store, name); err != nil {
+	if err = c.manager.Login(cmd.Context(), &store, name); err != nil {
 		return err
 	}
 

@@ -7,32 +7,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDeleteContextFound(t *testing.T) {
-	path := writeConfigForTest(t, baseConfig())
+// TestDeleteContextWiring verifies the cobra glue for delete-context. Deletion
+// logic is covered in the contexts package.
+func TestDeleteContextWiring(t *testing.T) {
+	writeConfig(t, baseConfig())
 
-	stdout, _, err := executeCommand(t, newDeleteCtxCmd(), "dev")
+	stdout, _, err := execCmd(t, newDeleteCtxCmd(), "prod")
 	require.NoError(t, err)
-
-	assert.Contains(t, stdout, `deleted context "dev"`)
-
-	got := readConfigForTest(t, path)
-	_, found := got.ContextByName("dev")
-	assert.False(t, found)
+	assert.Contains(t, stdout, `deleted context "prod"`)
 }
 
-func TestDeleteContextNotFound(t *testing.T) {
-	writeConfigForTest(t, baseConfig())
-
-	_, _, err := executeCommand(t, newDeleteCtxCmd(), "missing")
-	require.Error(t, err)
-	assert.ErrorContains(t, err, `context "missing" not found`)
-}
-
+// TestDeleteActiveContextWarning verifies the stderr warning emitted by the
+// command when the deleted context was the active one.
 func TestDeleteActiveContextWarning(t *testing.T) {
-	writeConfigForTest(t, baseConfig())
+	writeConfig(t, baseConfig())
 
-	_, stderr, err := executeCommand(t, newDeleteCtxCmd(), "dev")
+	_, stderr, err := execCmd(t, newDeleteCtxCmd(), "dev")
 	require.NoError(t, err)
-
 	assert.Contains(t, stderr, "warning: this removed your active context")
 }

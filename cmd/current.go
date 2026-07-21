@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/lvlcn-t/azctx/config"
+	"github.com/lvlcn-t/azctx/contexts"
 	"github.com/lvlcn-t/azctx/output"
 	"github.com/spf13/cobra"
 )
@@ -49,7 +50,7 @@ func (c *currentCmd) run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("read verbose flag: %w", err)
 	}
 
-	name, err := mustCurrentContextName(&store.Config)
+	name, err := contexts.CurrentContextName(&store.Config)
 	if err != nil {
 		return err
 	}

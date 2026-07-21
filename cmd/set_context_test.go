@@ -7,67 +7,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSetContextCreate(t *testing.T) {
-	path := writeConfigForTest(t, baseConfig())
+// TestSetContextWiring verifies the cobra glue: flags are parsed and the
+// created message is emitted. Merge and validation logic is covered in the contexts package.
+func TestSetContextWiring(t *testing.T) {
+	writeConfig(t, baseConfig())
 
-	stdout, _, err := executeCommand(
+	stdout, _, err := execCmd(
 		t,
 		newSetCtxCmd(),
 		"stage",
-		"--tenant",
-		"corp",
-		"--credential",
-		"user",
-		"--subscription",
-		"sub-stage",
+		"--tenant", "corp",
+		"--credential", "user",
+		"--subscription", "sub-stage",
 	)
 	require.NoError(t, err)
-
 	assert.Contains(t, stdout, `Context "stage" created.`)
-
-	got := readConfigForTest(t, path)
-	contextValue, found := got.ContextByName("stage")
-	require.True(t, found)
-	assert.Equal(t, "corp", contextValue.Details.Tenant)
-	assert.Equal(t, "user", contextValue.Details.Credential)
-	assert.Equal(t, "sub-stage", contextValue.Details.Subscription)
-}
-
-func TestSetContextUpdate(t *testing.T) {
-	path := writeConfigForTest(t, baseConfig())
-
-	stdout, _, err := executeCommand(
-		t,
-		newSetCtxCmd(),
-		"dev",
-		"--tenant",
-		"platform",
-		"--credential",
-		"sp",
-	)
-	require.NoError(t, err)
-
-	assert.Contains(t, stdout, `Context "dev" modified.`)
-
-	got := readConfigForTest(t, path)
-	contextValue, found := got.ContextByName("dev")
-	require.True(t, found)
-	assert.Equal(t, "platform", contextValue.Details.Tenant)
-	assert.Equal(t, "sp", contextValue.Details.Credential)
-}
-
-func TestSetContextMissingTenant(t *testing.T) {
-	writeConfigForTest(t, baseConfig())
-
-	_, _, err := executeCommand(
-		t,
-		newSetCtxCmd(),
-		"bad",
-		"--tenant",
-		"missing",
-		"--credential",
-		"user",
-	)
-	require.Error(t, err)
-	assert.ErrorContains(t, err, `tenant "missing" does not exist`)
 }

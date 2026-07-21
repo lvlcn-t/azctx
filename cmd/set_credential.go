@@ -4,13 +4,14 @@ import (
 	"fmt"
 
 	"github.com/lvlcn-t/azctx/config"
+	"github.com/lvlcn-t/azctx/contexts"
 	"github.com/spf13/cobra"
 )
 
 type setCredentialCmd struct {
-	writer config.Writer
-	loader config.Loader
-	flags  credentialFlagsInput
+	manager *contexts.Manager
+	loader  config.Loader
+	flags   credentialFlagsInput
 }
 
 type credentialFlagsInput struct {
@@ -28,8 +29,8 @@ type credentialFlagsInput struct {
 // newSetCredentialCmd creates or updates a credential entry in config.
 func newSetCredentialCmd() *cobra.Command {
 	command := &setCredentialCmd{
-		loader: config.NewLoader(),
-		writer: config.NewWriter(),
+		loader:  config.NewLoader(),
+		manager: contexts.New(),
 	}
 
 	cmd := &cobra.Command{
@@ -72,9 +73,6 @@ func (c *setCredentialCmd) run(cmd *cobra.Command, args []string) error {
 	}
 
 	credName := args[0]
-	if credName == "" {
-		return fmt.Errorf("credential name must not be empty")
-	}
 
 	var source config.TokenSource
 	if c.flags.issuer != "" && c.flags.oidcClientID != "" && c.flags.redirectURI != "" && len(c.flags.scopes) > 0 {
@@ -105,19 +103,8 @@ func (c *setCredentialCmd) run(cmd *cobra.Command, args []string) error {
 		},
 	}
 
-	if err = nextCredential.Validate(); err != nil {
-		return err
-	}
-
-	wasExisting := false
-	if _, found := store.Config.CredentialByName(credName); found {
-		wasExisting = true
-	}
-
-	path := store.PathForCredential(credName)
-	cfg := store.FileConfig(path)
-	cfg.UpsertCredential(&nextCredential)
-	if err = c.writer.Write(path, &cfg); err != nil {
+	wasExisting, err := c.manager.SetCredential(&store, &nextCredential)
+	if err != nil {
 		return err
 	}
 
