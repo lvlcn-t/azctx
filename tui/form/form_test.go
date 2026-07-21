@@ -119,3 +119,25 @@ func TestModel_NavigationClearsError(t *testing.T) {
 	m, _ = m.Update(keyMsg("tab"))
 	assert.Empty(t, m.err, "moving focus clears the error")
 }
+
+func TestModel_ReadOnlyFieldSkipped(t *testing.T) {
+	m := New("Edit", []Field{
+		{Key: "name", Label: "Name", Value: "corp", ReadOnly: true},
+		{Key: "id", Label: "ID", Required: true},
+	})
+
+	// The editable id field is focused initially, not the read-only name.
+	assert.Equal(t, 1, m.focus)
+
+	// Typing edits id; the read-only name keeps its value.
+	m = typeText(m, "tenant-9")
+	m, _ = m.Update(keyMsg("tab")) // wraps, still lands on id (only editable)
+	assert.Equal(t, 1, m.focus)
+
+	_, cmd := m.Update(keyMsg("enter"))
+	require.NotNil(t, cmd)
+	submitted, ok := cmd().(Submitted)
+	require.True(t, ok)
+	assert.Equal(t, "corp", submitted.Values["name"], "read-only value is preserved")
+	assert.Equal(t, "tenant-9", submitted.Values["id"])
+}

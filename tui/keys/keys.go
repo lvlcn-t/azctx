@@ -42,10 +42,12 @@ var (
 
 // Control keys
 var (
-	Enter  key.Binding = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select"))
-	Escape key.Binding = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "close"))
-	Quit   key.Binding = key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit"))
-	CtrlC  key.Binding = key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit"))
+	Enter   key.Binding = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select"))
+	Escape  key.Binding = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "close"))
+	Quit    key.Binding = key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit"))
+	CtrlC   key.Binding = key.NewBinding(key.WithKeys("ctrl+c"), key.WithHelp("ctrl+c", "quit"))
+	Confirm key.Binding = key.NewBinding(key.WithKeys("y"), key.WithHelp("y", "confirm"))
+	Cancel  key.Binding = key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "cancel"))
 )
 
 func Matches(msg tea.Msg, b ...key.Binding) bool {

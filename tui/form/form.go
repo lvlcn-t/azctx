@@ -23,6 +23,10 @@ type Field struct {
 	Placeholder string
 	Value       string
 	Required    bool
+	// ReadOnly renders the field's value but prevents focusing or editing it.
+	// Use it for identity fields (e.g. an entry's name) that must not change on
+	// an update; use a dedicated rename flow to change them.
+	ReadOnly bool
 }
 
 // Submitted is emitted when the form passes validation and the user submits.
@@ -61,31 +65,41 @@ func newFormKeys() formKeys {
 	}
 }
 
-// New builds a form from the given title and fields. The first field is
-// focused.
+// New builds a form from the given title and fields. The first editable field
+// is focused.
 func New(title string, fields []Field) Model {
 	inputs := make([]textinput.Model, len(fields))
 	for i, f := range fields {
 		in := textinput.New()
 		in.Placeholder = f.Placeholder
 		in.SetValue(f.Value)
-		if i == 0 {
-			in.Focus()
-		}
 		inputs[i] = in
 	}
 
-	return Model{
+	m := Model{
 		title:  title,
 		fields: fields,
 		inputs: inputs,
 		keys:   newFormKeys(),
+		focus:  -1,
 	}
+	m.focusOn(m.nextEditable(-1, 1))
+
+	return m
 }
 
 // SetWidth records the available width for layout.
 func (m *Model) SetWidth(width int) {
 	m.width = width
+}
+
+// Values returns the current trimmed value of every field, keyed by Field.Key.
+func (m *Model) Values() map[string]string {
+	values := make(map[string]string, len(m.fields))
+	for i, f := range m.fields {
+		values[f.Key] = strings.TrimSpace(m.inputs[i].Value())
+	}
+	return values
 }
 
 // Update handles navigation, editing, submission, and cancellation. It returns
@@ -109,6 +123,10 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) { //nolint:gocritic // Bubbl
 		}
 	}
 
+	if m.focus < 0 {
+		return m, nil
+	}
+
 	var cmd tea.Cmd
 	m.inputs[m.focus], cmd = m.inputs[m.focus].Update(msg)
 	return m, cmd
@@ -120,15 +138,13 @@ func (m Model) trySubmit() (Model, tea.Cmd) { //nolint:gocritic // Bubble Tea va
 	for i, f := range m.fields {
 		value := strings.TrimSpace(m.inputs[i].Value())
 		if f.Required && value == "" {
-			m.err = f.Label + " is required"
-			m.focusOn(i)
+			m.failField(i, f.Label+" is required")
 			return m, nil
 		}
 
 		if f.Validate != nil {
 			if err := f.Validate(value); err != nil {
-				m.err = err.Error()
-				m.focusOn(i)
+				m.failField(i, err.Error())
 				return m, nil
 			}
 		}
@@ -139,16 +155,43 @@ func (m Model) trySubmit() (Model, tea.Cmd) { //nolint:gocritic // Bubble Tea va
 	return m, submit(values)
 }
 
-func (m *Model) focusDelta(delta int) {
-	m.err = ""
-	m.focusOn((m.focus + delta + len(m.inputs)) % len(m.inputs))
+// failField records a validation error and focuses the offending field when it
+// is editable.
+func (m *Model) failField(index int, msg string) {
+	m.err = msg
+	if !m.fields[index].ReadOnly {
+		m.focusOn(index)
+	}
 }
 
-// focusOn moves focus to index without touching the error message.
+func (m *Model) focusDelta(delta int) {
+	m.err = ""
+	m.focusOn(m.nextEditable(m.focus, delta))
+}
+
+// focusOn moves focus to index without touching the error message. A negative
+// index means no field is focusable (all read-only); nothing is focused.
 func (m *Model) focusOn(index int) {
-	m.inputs[m.focus].Blur()
+	if m.focus >= 0 {
+		m.inputs[m.focus].Blur()
+	}
 	m.focus = index
-	m.inputs[m.focus].Focus()
+	if index >= 0 {
+		m.inputs[index].Focus()
+	}
+}
+
+// nextEditable returns the next editable field index starting from from and
+// stepping by delta (wrapping). It returns -1 when no field is editable.
+func (m *Model) nextEditable(from, delta int) int {
+	n := len(m.inputs)
+	for i := 1; i <= n; i++ {
+		idx := (from + i*delta%n + n) % n
+		if !m.fields[idx].ReadOnly {
+			return idx
+		}
+	}
+	return -1
 }
 
 // View renders the form as a bordered panel.

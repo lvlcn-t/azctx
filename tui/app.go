@@ -3,6 +3,7 @@ package tui
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lvlcn-t/azctx/config"
+	"github.com/lvlcn-t/azctx/contexts"
 	"github.com/lvlcn-t/azctx/tui/splash"
 	"github.com/lvlcn-t/azctx/tui/state"
 	"github.com/lvlcn-t/azctx/tui/tabs"
@@ -22,12 +23,18 @@ type App struct {
 	splash splash.Model
 }
 
+// NewApp builds the root model wired with a production contexts.Manager.
 func NewApp(store *config.Store, mode state.Mode) *App {
+	return newApp(store, mode, contexts.New())
+}
+
+// newApp builds the root model with an explicit manager, for test injection.
+func newApp(store *config.Store, mode state.Mode, manager tabs.Manager) *App {
 	s := state.New(store, mode)
 	return &App{
 		state:  s,
 		splash: splash.New(s),
-		tabs:   tabs.New(s),
+		tabs:   tabs.New(s, manager),
 	}
 }
 

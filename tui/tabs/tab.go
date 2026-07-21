@@ -9,6 +9,9 @@ import (
 	"github.com/lvlcn-t/azctx/tui/keys"
 )
 
+// labelName is the shared display label for an entry's name field.
+const labelName = "Name"
+
 // Tab represents a single tab in the UI, responsible for rendering its content and handling interactions.
 type Tab interface {
 	Resize(width, height int)
@@ -90,4 +93,24 @@ func ShowDetails(item details.Item) TabAction {
 
 func Select(item details.Item) TabAction {
 	return TabAction{Kind: TabActionSelect, Item: item}
+}
+
+// Create requests opening a create form for the active tab.
+func Create() TabAction {
+	return TabAction{Kind: TabActionCreate}
+}
+
+// Edit requests opening an edit form pre-filled from item.
+func Edit(item details.Item) TabAction {
+	return TabAction{Kind: TabActionEdit, Item: item}
+}
+
+// Rename requests opening a rename form for item.
+func Rename(item details.Item) TabAction {
+	return TabAction{Kind: TabActionRename, Item: item}
+}
+
+// Delete requests confirmation to delete item.
+func Delete(item details.Item) TabAction {
+	return TabAction{Kind: TabActionDelete, Item: item}
 }

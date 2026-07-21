@@ -64,7 +64,7 @@ func (i *CredentialItem) Details() details.View {
 
 func (i *CredentialItem) rows() []details.Row {
 	rows := []details.Row{
-		{Label: "Name", Value: i.Name},
+		{Label: labelName, Value: i.Name},
 		{Label: "Type", Value: i.Credential.Details.Type.String()},
 	}
 	switch i.Credential.Details.Type {

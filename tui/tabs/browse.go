@@ -25,6 +25,25 @@ func newBrowseTab(s *state.UI, rebuild func(*config.Store) []list.Item, l listBu
 		key.Binding{},
 		keys.New(keys.Escape).WithHelp("close").Bind(),
 	)
+	return buildBrowseTab(s, rebuild, l, tk)
+}
+
+// newCRUDBrowseTab is like newBrowseTab but also binds create, edit, rename, and
+// delete keys so the tab can emit CRUD actions.
+func newCRUDBrowseTab(s *state.UI, rebuild func(*config.Store) []list.Item, l listBuilder) browseTab { //nolint:gocritic // irrelevant on startup
+	tk := newTabKeys(
+		keys.New(keys.Enter).WithHelp("view").WithAliases(keys.View, keys.Describe).Bind(),
+		key.Binding{},
+		keys.New(keys.Escape).WithHelp("close").Bind(),
+	)
+	tk.Create = keys.New(keys.Create).WithHelp("new").Bind()
+	tk.Edit = keys.New(keys.Edit).WithHelp("edit").Bind()
+	tk.Rename = keys.New(keys.Rename).WithHelp("rename").Bind()
+	tk.Delete = keys.New(keys.Delete).WithHelp("delete").Bind()
+	return buildBrowseTab(s, rebuild, l, tk)
+}
+
+func buildBrowseTab(s *state.UI, rebuild func(*config.Store) []list.Item, l listBuilder, tk tabKeys) browseTab { //nolint:gocritic // irrelevant on startup
 	return browseTab{
 		list: l.WithItems(rebuild(s.Config())...).
 			ShowStatusBar(true).
@@ -52,6 +71,27 @@ func (t *browseTab) Update(msg tea.Msg) (TabAction, tea.Cmd) {
 	case keys.Matches(msg, t.keys.Select, t.keys.View):
 		if item, ok := t.list.SelectedItem().(details.Item); ok {
 			return ShowDetails(item), nil
+		}
+		return NoAction(), nil
+
+	case keys.Matches(msg, t.keys.Create):
+		return Create(), nil
+
+	case keys.Matches(msg, t.keys.Edit):
+		if item, ok := t.list.SelectedItem().(details.Item); ok {
+			return Edit(item), nil
+		}
+		return NoAction(), nil
+
+	case keys.Matches(msg, t.keys.Rename):
+		if item, ok := t.list.SelectedItem().(details.Item); ok {
+			return Rename(item), nil
+		}
+		return NoAction(), nil
+
+	case keys.Matches(msg, t.keys.Delete):
+		if item, ok := t.list.SelectedItem().(details.Item); ok {
+			return Delete(item), nil
 		}
 		return NoAction(), nil
 
