@@ -30,6 +30,7 @@ var (
 	TitleStyle = lipgloss.NewStyle().Bold(true).Foreground(ColorTitle)
 	DimStyle   = lipgloss.NewStyle().Foreground(ColorDim)
 	HelpStyle  = lipgloss.NewStyle().Foreground(ColorDim).MarginTop(1)
+	ErrorStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.AdaptiveColor{Light: "#D13438", Dark: "#F1707B"})
 )
 
 func NewHelpStyles() help.Styles {

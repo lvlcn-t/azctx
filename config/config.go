@@ -119,6 +119,30 @@ func (cfg *Config) DeleteContext(name string) bool {
 	return false
 }
 
+// DeleteTenant removes a tenant by name.
+func (cfg *Config) DeleteTenant(name string) bool {
+	for index, tenant := range cfg.Tenants {
+		if tenant.Name == name {
+			cfg.Tenants = append(cfg.Tenants[:index], cfg.Tenants[index+1:]...)
+			return true
+		}
+	}
+
+	return false
+}
+
+// DeleteCredential removes a credential by name.
+func (cfg *Config) DeleteCredential(name string) bool {
+	for index, credential := range cfg.Credentials {
+		if credential.Name == name {
+			cfg.Credentials = append(cfg.Credentials[:index], cfg.Credentials[index+1:]...)
+			return true
+		}
+	}
+
+	return false
+}
+
 // RenameContext renames an existing context.
 func (cfg *Config) RenameContext(oldName, newName string) bool {
 	for index, context := range cfg.Contexts {
@@ -129,6 +153,86 @@ func (cfg *Config) RenameContext(oldName, newName string) bool {
 	}
 
 	return false
+}
+
+// RenameTenant renames an existing tenant. It does not update contexts that
+// reference the tenant; use RetargetTenant for that.
+func (cfg *Config) RenameTenant(oldName, newName string) bool {
+	for index, tenant := range cfg.Tenants {
+		if tenant.Name == oldName {
+			cfg.Tenants[index].Name = newName
+			return true
+		}
+	}
+
+	return false
+}
+
+// RenameCredential renames an existing credential. It does not update contexts
+// that reference the credential; use RetargetCredential for that.
+func (cfg *Config) RenameCredential(oldName, newName string) bool {
+	for index, credential := range cfg.Credentials {
+		if credential.Name == oldName {
+			cfg.Credentials[index].Name = newName
+			return true
+		}
+	}
+
+	return false
+}
+
+// RetargetTenant rewrites every context that references oldName to reference
+// newName, returning the number of contexts updated.
+func (cfg *Config) RetargetTenant(oldName, newName string) int {
+	updated := 0
+	for index := range cfg.Contexts {
+		if cfg.Contexts[index].Details.Tenant == oldName {
+			cfg.Contexts[index].Details.Tenant = newName
+			updated++
+		}
+	}
+
+	return updated
+}
+
+// RetargetCredential rewrites every context that references oldName to
+// reference newName, returning the number of contexts updated.
+func (cfg *Config) RetargetCredential(oldName, newName string) int {
+	updated := 0
+	for index := range cfg.Contexts {
+		if cfg.Contexts[index].Details.Credential == oldName {
+			cfg.Contexts[index].Details.Credential = newName
+			updated++
+		}
+	}
+
+	return updated
+}
+
+// ContextsReferencingTenant returns the names of contexts referencing the
+// tenant, in declaration order.
+func (cfg *Config) ContextsReferencingTenant(name string) []string {
+	var names []string
+	for _, context := range cfg.Contexts {
+		if context.Details.Tenant == name {
+			names = append(names, context.Name)
+		}
+	}
+
+	return names
+}
+
+// ContextsReferencingCredential returns the names of contexts referencing the
+// credential, in declaration order.
+func (cfg *Config) ContextsReferencingCredential(name string) []string {
+	var names []string
+	for _, context := range cfg.Contexts {
+		if context.Details.Credential == name {
+			names = append(names, context.Name)
+		}
+	}
+
+	return names
 }
 
 // Merge merges another config into this config.
