@@ -205,8 +205,8 @@ func TestManager_RenameContext_UpdatesCurrent(t *testing.T) {
 func TestManager_RenameContext_Errors(t *testing.T) {
 	writeConfig(t, baseConfig())
 
-	require.Error(t, New().RenameContext(loadStore(t), "ghost", "new"))
-	require.Error(t, New().RenameContext(loadStore(t), devContext, prodContext))
+	require.ErrorIs(t, New().RenameContext(loadStore(t), "ghost", "new"), ErrContextNotFound)
+	require.ErrorIs(t, New().RenameContext(loadStore(t), devContext, prodContext), ErrContextExists)
 }
 
 func TestManager_DeleteContext(t *testing.T) {
@@ -236,7 +236,7 @@ func TestManager_DeleteContext_NotFound(t *testing.T) {
 	store := loadStore(t)
 
 	_, err := New().DeleteContext(store, "ghost")
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrContextNotFound)
 }
 
 func TestManager_DeleteTenant(t *testing.T) {
@@ -252,14 +252,6 @@ func TestManager_DeleteTenant(t *testing.T) {
 	assert.False(t, found)
 }
 
-func TestManager_DeleteTenant_NotFound(t *testing.T) {
-	writeConfig(t, baseConfig())
-	store := loadStore(t)
-
-	_, err := New().DeleteTenant(store, "ghost")
-	require.Error(t, err)
-}
-
 func TestManager_DeleteCredential(t *testing.T) {
 	path := writeConfig(t, baseConfig())
 	store := loadStore(t)
@@ -273,10 +265,28 @@ func TestManager_DeleteCredential(t *testing.T) {
 	assert.False(t, found)
 }
 
-func TestManager_DeleteCredential_NotFound(t *testing.T) {
-	writeConfig(t, baseConfig())
-	store := loadStore(t)
+func TestManager_Delete_NotFound(t *testing.T) {
+	tests := []struct {
+		wantErr error
+		delete  func(m *Manager, store *config.Store) error
+		name    string
+	}{
+		{
+			name:    "tenant",
+			delete:  func(m *Manager, s *config.Store) error { _, err := m.DeleteTenant(s, "ghost"); return err },
+			wantErr: ErrTenantNotFound,
+		},
+		{
+			name:    "credential",
+			delete:  func(m *Manager, s *config.Store) error { _, err := m.DeleteCredential(s, "ghost"); return err },
+			wantErr: ErrCredentialNotFound,
+		},
+	}
 
-	_, err := New().DeleteCredential(store, "ghost")
-	require.Error(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			writeConfig(t, baseConfig())
+			require.ErrorIs(t, tt.delete(New(), loadStore(t)), tt.wantErr)
+		})
+	}
 }

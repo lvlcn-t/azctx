@@ -85,9 +85,9 @@ func TestTabs_CreateCredential_RejectsInvalidType(t *testing.T) {
 	cmd := tabs.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	drain(tabs, cmd)
 
-	// Inline validation keeps the form open.
+	// Inline validation keeps the form open with a validation error.
 	require.True(t, tabs.state.Is(state.FormView))
-	assert.Contains(t, tabs.form.View(), "unsupported credential type")
+	require.Error(t, tabs.form.Err())
 }
 
 func TestTabs_EditCredential_UpdatesInPlace(t *testing.T) {

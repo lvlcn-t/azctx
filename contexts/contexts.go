@@ -233,7 +233,7 @@ func (m *Manager) renameEntry(store *config.Store, t *renameTarget) (RenameResul
 		return RenameResult{}, fmt.Errorf("%w: %q", t.existsErr, t.newName)
 	}
 
-	if err := m.renameAndRetarget(store, t.path, t.affected, t.rename, t.retarget); err != nil {
+	if err := m.renameAndRetarget(store, t); err != nil {
 		return RenameResult{}, err
 	}
 
@@ -270,25 +270,19 @@ func validateCredential(cred *config.Credential) error {
 // every file that owns an affected context. Each file is written exactly once:
 // a file that both defines the entry and holds referencing contexts gets both
 // mutations applied before it is persisted.
-func (m *Manager) renameAndRetarget(
-	store *config.Store,
-	entryPath string,
-	affected []string,
-	rename func(*config.Config),
-	retarget func(*config.Config),
-) error {
+func (m *Manager) renameAndRetarget(store *config.Store, t *renameTarget) error {
 	// Collect every file that needs a write.
-	paths := map[string]struct{}{entryPath: {}}
-	for _, name := range affected {
+	paths := map[string]struct{}{t.path: {}}
+	for _, name := range t.affected {
 		paths[store.PathForContext(name)] = struct{}{}
 	}
 
 	for path := range paths {
 		cfg := store.FileConfig(path)
-		if path == entryPath {
-			rename(&cfg)
+		if path == t.path {
+			t.rename(&cfg)
 		}
-		retarget(&cfg)
+		t.retarget(&cfg)
 
 		if err := m.Writer.Write(path, &cfg); err != nil {
 			return err
@@ -303,17 +297,17 @@ func (m *Manager) renameAndRetarget(
 // updated there too.
 func (m *Manager) RenameContext(store *config.Store, oldName, newName string) error {
 	if _, found := store.Config.ContextByName(oldName); !found {
-		return fmt.Errorf("cannot rename context %q, it does not exist", oldName)
+		return fmt.Errorf("%w: %q", ErrContextNotFound, oldName)
 	}
 
 	if _, found := store.Config.ContextByName(newName); found {
-		return fmt.Errorf("cannot rename context %q, context %q already exists", oldName, newName)
+		return fmt.Errorf("%w: %q", ErrContextExists, newName)
 	}
 
 	path := store.PathForContext(oldName)
 	cfg := store.FileConfig(path)
 	if renamed := cfg.RenameContext(oldName, newName); !renamed {
-		return fmt.Errorf("cannot rename context %q, it does not exist in %q", oldName, path)
+		return fmt.Errorf("%w: %q in %q", ErrContextNotFound, oldName, path)
 	}
 
 	if cfg.CurrentContext == oldName {
@@ -361,13 +355,13 @@ type RenameResult struct {
 // it was the active context.
 func (m *Manager) DeleteContext(store *config.Store, name string) (DeleteResult, error) {
 	if _, found := store.Config.ContextByName(name); !found {
-		return DeleteResult{}, fmt.Errorf("context %q not found", name)
+		return DeleteResult{}, fmt.Errorf("%w: %q", ErrContextNotFound, name)
 	}
 
 	path := store.PathForContext(name)
 	cfg := store.FileConfig(path)
 	if deleted := cfg.DeleteContext(name); !deleted {
-		return DeleteResult{}, fmt.Errorf("context %q not found in %q", name, path)
+		return DeleteResult{}, fmt.Errorf("%w: %q in %q", ErrContextNotFound, name, path)
 	}
 
 	if err := m.Writer.Write(path, &cfg); err != nil {
@@ -383,12 +377,12 @@ func (m *Manager) DeleteContext(store *config.Store, name string) (DeleteResult,
 func (m *Manager) DeleteTenant(store *config.Store, name string) (DeleteResult, error) {
 	_, found := store.Config.TenantByName(name)
 	return m.deleteEntry(store, &entryTarget{
-		kind:    "tenant",
-		name:    name,
-		found:   found,
-		path:    store.PathForTenant(name),
-		deleteX: func(cfg *config.Config) bool { return cfg.DeleteTenant(name) },
-		orphans: store.Config.ContextsReferencingTenant(name),
+		notFound: ErrTenantNotFound,
+		name:     name,
+		found:    found,
+		path:     store.PathForTenant(name),
+		remove:   func(cfg *config.Config) bool { return cfg.DeleteTenant(name) },
+		orphans:  store.Config.ContextsReferencingTenant(name),
 	})
 }
 
@@ -398,35 +392,35 @@ func (m *Manager) DeleteTenant(store *config.Store, name string) (DeleteResult, 
 func (m *Manager) DeleteCredential(store *config.Store, name string) (DeleteResult, error) {
 	_, found := store.Config.CredentialByName(name)
 	return m.deleteEntry(store, &entryTarget{
-		kind:    "credential",
-		name:    name,
-		found:   found,
-		path:    store.PathForCredential(name),
-		deleteX: func(cfg *config.Config) bool { return cfg.DeleteCredential(name) },
-		orphans: store.Config.ContextsReferencingCredential(name),
+		notFound: ErrCredentialNotFound,
+		name:     name,
+		found:    found,
+		path:     store.PathForCredential(name),
+		remove:   func(cfg *config.Config) bool { return cfg.DeleteCredential(name) },
+		orphans:  store.Config.ContextsReferencingCredential(name),
 	})
 }
 
 // entryTarget describes a non-context entry to delete.
 type entryTarget struct {
-	deleteX func(cfg *config.Config) bool
-	kind    string
-	name    string
-	path    string
-	orphans []string
-	found   bool
+	notFound error
+	remove   func(cfg *config.Config) bool
+	name     string
+	path     string
+	orphans  []string
+	found    bool
 }
 
 // deleteEntry removes a tenant or credential entry. Contexts use DeleteContext
 // directly because they additionally report whether the active context changed.
 func (m *Manager) deleteEntry(store *config.Store, t *entryTarget) (DeleteResult, error) {
 	if !t.found {
-		return DeleteResult{}, fmt.Errorf("%s %q not found", t.kind, t.name)
+		return DeleteResult{}, fmt.Errorf("%w: %q", t.notFound, t.name)
 	}
 
 	cfg := store.FileConfig(t.path)
-	if deleted := t.deleteX(&cfg); !deleted {
-		return DeleteResult{}, fmt.Errorf("%s %q not found in %q", t.kind, t.name, t.path)
+	if removed := t.remove(&cfg); !removed {
+		return DeleteResult{}, fmt.Errorf("%w: %q in %q", t.notFound, t.name, t.path)
 	}
 
 	if err := m.Writer.Write(t.path, &cfg); err != nil {

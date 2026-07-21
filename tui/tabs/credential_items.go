@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/lvlcn-t/azctx/config"
+	"github.com/lvlcn-t/azctx/contexts"
 	"github.com/lvlcn-t/azctx/keyvault"
 	"github.com/lvlcn-t/azctx/tui/details"
 	"github.com/lvlcn-t/azctx/tui/form"
@@ -16,6 +17,7 @@ var (
 	_ list.Item        = (*CredentialItem)(nil)
 	_ list.DefaultItem = (*CredentialItem)(nil)
 	_ details.Item     = (*CredentialItem)(nil)
+	_ entry            = (*CredentialItem)(nil)
 )
 
 type CredentialItem struct{ config.Credential }
@@ -28,6 +30,9 @@ func credentialItems(s *config.Store) []list.Item {
 	}
 	return items
 }
+
+func (i *CredentialItem) name() string { return i.Name }
+func (i *CredentialItem) blank() entry { return &CredentialItem{} }
 
 func (i *CredentialItem) Title() string { return i.Name }
 func (i *CredentialItem) Description() string {
@@ -127,15 +132,15 @@ func (i *CredentialItem) workloadIdentityRows() []details.Row {
 	return rows
 }
 
-// credentialForm builds the create or edit form for a credential. All fields
-// are shown; only the ones relevant to the chosen type are used at submit time,
-// where the domain validates the result. On edit the name is locked read-only.
-func credentialForm(intent formIntent, item details.Item) form.Model {
-	var c config.Credential
+// form builds the create or edit form for a credential. All fields are shown;
+// only the ones relevant to the chosen type are used at submit time, where the
+// domain validates the result. On edit the name is locked read-only.
+func (i *CredentialItem) form(intent formIntent, _ *config.Store) form.Model {
+	c := config.Credential{}
 	title := "New credential"
 	readonly := false
-	if cred, ok := item.(*CredentialItem); ok && intent == intentEdit {
-		c = cred.Credential
+	if intent == intentEdit {
+		c = i.Credential
 		title = "Edit credential"
 		readonly = true
 	}
@@ -166,6 +171,26 @@ func credentialForm(intent formIntent, item details.Item) form.Model {
 		{Key: fieldRedirectURI, Label: "Redirect URI", Value: oauth.RedirectURI, Placeholder: "optional"},
 		{Key: fieldScopes, Label: "Scopes", Value: strings.Join(oauth.Scopes, ","), Placeholder: "comma-separated"},
 	})
+}
+
+func (i *CredentialItem) save(m *contexts.Manager, store *config.Store, sub submission) (string, error) {
+	cred := credentialFromValues(sub.values)
+	switch sub.intent {
+	case intentCreate:
+		return "created credential " + cred.Name, m.CreateCredential(store, cred)
+	case intentEdit:
+		return "updated credential " + cred.Name, m.UpdateCredential(store, cred)
+	case intentRename:
+		result, err := m.RenameCredential(store, i.Name, cred.Name)
+		return renameStatus("credential", i.Name, cred.Name, result.UpdatedContexts), err
+	default:
+		return "", nil
+	}
+}
+
+func (i *CredentialItem) remove(m *contexts.Manager, store *config.Store) (string, error) {
+	result, err := m.DeleteCredential(store, i.Name)
+	return deleteStatus("credential", i.Name, result.OrphanedContexts), err
 }
 
 // credentialTypeValidator rejects an unsupported credential type.

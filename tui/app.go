@@ -25,16 +25,11 @@ type App struct {
 
 // NewApp builds the root model wired with a production contexts.Manager.
 func NewApp(store *config.Store, mode state.Mode) *App {
-	return newApp(store, mode, contexts.New())
-}
-
-// newApp builds the root model with an explicit manager, for test injection.
-func newApp(store *config.Store, mode state.Mode, manager tabs.Manager) *App {
 	s := state.New(store, mode)
 	return &App{
 		state:  s,
 		splash: splash.New(s),
-		tabs:   tabs.New(s, manager),
+		tabs:   tabs.New(s, contexts.New()),
 	}
 }
 

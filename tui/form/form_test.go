@@ -80,7 +80,7 @@ func TestModel_RequiredFieldBlocksSubmit(t *testing.T) {
 
 	next, cmd := m.Update(keyMsg("enter"))
 	assert.Nil(t, cmd, "submit must be blocked")
-	assert.NotEmpty(t, next.err, "an inline error must be shown")
+	require.ErrorIs(t, next.Err(), ErrRequired)
 	assert.Equal(t, 0, next.focus, "focus returns to the invalid field")
 }
 
@@ -93,7 +93,7 @@ func TestModel_ValidatorBlocksSubmit(t *testing.T) {
 
 	next, cmd := m.Update(keyMsg("enter"))
 	assert.Nil(t, cmd)
-	assert.Equal(t, sentinel.Error(), next.err)
+	require.ErrorIs(t, next.Err(), sentinel)
 }
 
 func TestModel_Navigation(t *testing.T) {
@@ -114,10 +114,10 @@ func TestModel_NavigationClearsError(t *testing.T) {
 	m := twoFieldForm()
 
 	m, _ = m.Update(keyMsg("enter")) // triggers required error
-	require.NotEmpty(t, m.err)
+	require.Error(t, m.Err())
 
 	m, _ = m.Update(keyMsg("tab"))
-	assert.Empty(t, m.err, "moving focus clears the error")
+	assert.NoError(t, m.Err(), "moving focus clears the error")
 }
 
 func TestModel_ReadOnlyFieldSkipped(t *testing.T) {

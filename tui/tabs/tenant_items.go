@@ -3,6 +3,7 @@ package tabs
 import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/lvlcn-t/azctx/config"
+	"github.com/lvlcn-t/azctx/contexts"
 	"github.com/lvlcn-t/azctx/tui/details"
 	"github.com/lvlcn-t/azctx/tui/form"
 )
@@ -11,6 +12,7 @@ var (
 	_ list.Item        = (*TenantItem)(nil)
 	_ list.DefaultItem = (*TenantItem)(nil)
 	_ details.Item     = (*TenantItem)(nil)
+	_ entry            = (*TenantItem)(nil)
 )
 
 type TenantItem struct{ config.Tenant }
@@ -26,9 +28,9 @@ func tenantItems(s *config.Store) []list.Item {
 
 func (i *TenantItem) Title() string       { return i.Name }
 func (i *TenantItem) Description() string { return i.Tenant.Details.ID }
-func (i *TenantItem) FilterValue() string {
-	return i.Name + " " + i.Tenant.Details.ID
-}
+func (i *TenantItem) name() string        { return i.Name }
+func (i *TenantItem) blank() entry        { return &TenantItem{} }
+func (i *TenantItem) FilterValue() string { return i.Name + " " + i.Tenant.Details.ID }
 
 func (i *TenantItem) Details() details.View {
 	return details.View{
@@ -40,16 +42,15 @@ func (i *TenantItem) Details() details.View {
 	}
 }
 
-// tenantForm builds the create or edit form for a tenant. On edit the name is
+// form builds the create or edit form for a tenant. On edit the name is
 // pre-filled and locked (read-only): the name is the entry's identity and can
 // only be changed through the rename flow, never an update.
-func tenantForm(intent formIntent, item details.Item) form.Model {
-	var name, id string
+func (i *TenantItem) form(intent formIntent, _ *config.Store) form.Model {
+	name, id := "", ""
 	title := "New tenant"
 	readonly := false
-	if tenant, ok := item.(*TenantItem); ok && intent == intentEdit {
-		name = tenant.Name
-		id = tenant.Tenant.Details.ID
+	if intent == intentEdit {
+		name, id = i.Name, i.Tenant.Details.ID
 		title = "Edit tenant"
 		readonly = true
 	}
@@ -58,4 +59,24 @@ func tenantForm(intent formIntent, item details.Item) form.Model {
 		{Key: fieldName, Label: labelName, Placeholder: "my-tenant", Value: name, Required: true, ReadOnly: readonly},
 		{Key: fieldID, Label: "ID", Placeholder: "00000000-0000-0000-0000-000000000000", Value: id, Required: true},
 	})
+}
+
+func (i *TenantItem) save(m *contexts.Manager, store *config.Store, sub submission) (string, error) {
+	name, id := sub.values[fieldName], sub.values[fieldID]
+	switch sub.intent {
+	case intentCreate:
+		return "created tenant " + name, m.CreateTenant(store, name, id)
+	case intentEdit:
+		return "updated tenant " + name, m.UpdateTenant(store, name, id)
+	case intentRename:
+		result, err := m.RenameTenant(store, i.Name, name)
+		return renameStatus("tenant", i.Name, name, result.UpdatedContexts), err
+	default:
+		return "", nil
+	}
+}
+
+func (i *TenantItem) remove(m *contexts.Manager, store *config.Store) (string, error) {
+	result, err := m.DeleteTenant(store, i.Name)
+	return deleteStatus("tenant", i.Name, result.OrphanedContexts), err
 }

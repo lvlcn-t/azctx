@@ -49,9 +49,9 @@ func TestTabs_CreateContext_RejectsUnknownTenant(t *testing.T) {
 	cmd := tabs.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	drain(tabs, cmd)
 
-	// Validation blocks submission; the form stays open with an inline error.
+	// Validation blocks submission; the form stays open with the reference error.
 	require.True(t, tabs.state.Is(state.FormView))
-	assert.Contains(t, tabs.form.View(), "does not exist")
+	require.ErrorIs(t, tabs.form.Err(), errReferenceUnknown)
 }
 
 func TestTabs_EditContext_UpdatesInPlace(t *testing.T) {
