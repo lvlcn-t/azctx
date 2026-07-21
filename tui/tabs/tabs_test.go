@@ -165,8 +165,8 @@ func TestTabs_CreateTenant_RejectsDuplicate(t *testing.T) {
 	cmd := tabs.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	drain(tabs, cmd)
 
-	// The write is rejected and surfaced in the status line.
-	assert.Contains(t, tabs.status, "already exists")
+	// The write is rejected with the create-conflict sentinel.
+	require.ErrorIs(t, tabs.lastErr, contexts.ErrTenantExists)
 }
 
 func TestTabs_DeleteTenant(t *testing.T) {
@@ -207,6 +207,3 @@ func drain(tabs *Tabs, cmd tea.Cmd) {
 		tabs.Update(msg)
 	}
 }
-
-// compile-time guard: the real manager satisfies the tabs.Manager interface.
-var _ Manager = (*contexts.Manager)(nil)

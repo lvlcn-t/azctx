@@ -5,6 +5,8 @@
 package form
 
 import (
+	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -38,10 +40,13 @@ type Submitted struct {
 // Canceled is emitted when the user aborts the form.
 type Canceled struct{}
 
+// ErrRequired is returned when a required field is left empty.
+var ErrRequired = errors.New("field is required")
+
 // Model is a focusable multi-field form.
 type Model struct {
 	title  string
-	err    string
+	err    error
 	keys   formKeys
 	fields []Field
 	inputs []textinput.Model
@@ -102,6 +107,10 @@ func (m *Model) Values() map[string]string {
 	return values
 }
 
+// Err returns the current validation error, or nil when the form is valid. It
+// is set when a submit is blocked and cleared on navigation.
+func (m *Model) Err() error { return m.err }
+
 // Update handles navigation, editing, submission, and cancellation. It returns
 // a Submitted or Canceled tea.Cmd when the form terminates.
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) { //nolint:gocritic // Bubble Tea value-receiver idiom; refactor tracked separately
@@ -138,13 +147,13 @@ func (m Model) trySubmit() (Model, tea.Cmd) { //nolint:gocritic // Bubble Tea va
 	for i, f := range m.fields {
 		value := strings.TrimSpace(m.inputs[i].Value())
 		if f.Required && value == "" {
-			m.failField(i, f.Label+" is required")
+			m.failField(i, fmt.Errorf("%w: %s", ErrRequired, f.Label))
 			return m, nil
 		}
 
 		if f.Validate != nil {
 			if err := f.Validate(value); err != nil {
-				m.failField(i, err.Error())
+				m.failField(i, err)
 				return m, nil
 			}
 		}
@@ -157,15 +166,15 @@ func (m Model) trySubmit() (Model, tea.Cmd) { //nolint:gocritic // Bubble Tea va
 
 // failField records a validation error and focuses the offending field when it
 // is editable.
-func (m *Model) failField(index int, msg string) {
-	m.err = msg
+func (m *Model) failField(index int, err error) {
+	m.err = err
 	if !m.fields[index].ReadOnly {
 		m.focusOn(index)
 	}
 }
 
 func (m *Model) focusDelta(delta int) {
-	m.err = ""
+	m.err = nil
 	m.focusOn(m.nextEditable(m.focus, delta))
 }
 
@@ -216,8 +225,8 @@ func (m Model) View() string { //nolint:gocritic // Bubble Tea value-receiver id
 		rows = append(rows, row)
 	}
 
-	if m.err != "" {
-		rows = append(rows, "", styles.ErrorStyle.Render(m.err))
+	if m.err != nil {
+		rows = append(rows, "", styles.ErrorStyle.Render(m.err.Error()))
 	}
 
 	rows = append(rows, "", styles.HelpStyle.Render("tab/↑↓ move · enter submit · esc cancel"))

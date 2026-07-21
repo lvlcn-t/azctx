@@ -5,9 +5,12 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lvlcn-t/azctx/config"
+	"github.com/lvlcn-t/azctx/contexts"
 	"github.com/lvlcn-t/azctx/tui/details"
 	"github.com/lvlcn-t/azctx/tui/form"
+	"github.com/lvlcn-t/azctx/tui/state"
 	"github.com/lvlcn-t/azctx/tui/styles"
 )
 
@@ -15,6 +18,8 @@ var (
 	_ list.Item        = (*ContextItem)(nil)
 	_ list.DefaultItem = (*ContextItem)(nil)
 	_ details.Item     = (*ContextItem)(nil)
+	_ entry            = (*ContextItem)(nil)
+	_ activatable      = (*ContextItem)(nil)
 )
 
 type ContextItem struct {
@@ -79,18 +84,27 @@ func (i *ContextItem) Details() details.View {
 	}
 }
 
-// contextForm builds the create or edit form for a context. On edit the name is
-// pre-filled and locked; tenant and credential must reference existing entries.
-// The tenant and credential help text lists the available names.
-func contextForm(intent formIntent, store *config.Store, item details.Item) form.Model {
-	var name, tenant, credential, subscription string
+func (i *ContextItem) name() string { return i.Name }
+func (i *ContextItem) blank() entry { return &ContextItem{} }
+
+// activate makes this context the current selection and quits the TUI.
+func (i *ContextItem) activate(s *state.UI) tea.Cmd {
+	s.SelectContext(i.Name)
+	return s.Quit()
+}
+
+// form builds the create or edit form for a context. On edit the name is
+// pre-filled and locked; tenant and credential must reference existing entries,
+// whose names are shown in the field placeholders.
+func (i *ContextItem) form(intent formIntent, store *config.Store) form.Model {
+	name, tenant, credential, subscription := "", "", "", ""
 	title := "New context"
 	readonly := false
-	if ctx, ok := item.(*ContextItem); ok && intent == intentEdit {
-		name = ctx.Name
-		tenant = ctx.Tenant.Name
-		credential = ctx.Credential.Name
-		subscription = ctx.Subscription
+	if intent == intentEdit {
+		name = i.Name
+		tenant = i.Tenant.Name
+		credential = i.Credential.Name
+		subscription = i.Subscription
 		title = "Edit context"
 		readonly = true
 	}
@@ -100,15 +114,48 @@ func contextForm(intent formIntent, store *config.Store, item details.Item) form
 		{
 			Key: fieldTenant, Label: "Tenant", Value: tenant, Required: true,
 			Placeholder: strings.Join(tenantNames(store), ", "),
-			Validate:    existsValidator("tenant", tenantNames(store)),
+			Validate:    existsValidator(tenantNames(store)),
 		},
 		{
 			Key: fieldCredential, Label: "Credential", Value: credential, Required: true,
 			Placeholder: strings.Join(credentialNames(store), ", "),
-			Validate:    existsValidator("credential", credentialNames(store)),
+			Validate:    existsValidator(credentialNames(store)),
 		},
 		{Key: fieldSubscription, Label: "Subscription", Value: subscription, Placeholder: "optional"},
 	})
+}
+
+func (i *ContextItem) save(m *contexts.Manager, store *config.Store, sub submission) (string, error) {
+	name := sub.values[fieldName]
+	next := config.Context{
+		Name: name,
+		Details: config.ContextDetails{
+			Tenant:       sub.values[fieldTenant],
+			Credential:   sub.values[fieldCredential],
+			Subscription: sub.values[fieldSubscription],
+		},
+	}
+
+	switch sub.intent {
+	case intentCreate:
+		return "created context " + name, m.CreateContext(store, next)
+	case intentEdit:
+		// The form always carries the subscription value, so treat it as changed.
+		return "updated context " + name, m.UpdateContext(store, next, true)
+	case intentRename:
+		return "renamed context " + i.Name + " to " + name, m.RenameContext(store, i.Name, name)
+	default:
+		return "", nil
+	}
+}
+
+func (i *ContextItem) remove(m *contexts.Manager, store *config.Store) (string, error) {
+	result, err := m.DeleteContext(store, i.Name)
+	status := "deleted context " + i.Name
+	if result.WasActive {
+		status += " (warning: removed the active context; use a context to select a new one)"
+	}
+	return status, err
 }
 
 // tenantNames returns the configured tenant names.
@@ -129,14 +176,15 @@ func credentialNames(store *config.Store) []string {
 	return names
 }
 
-// existsValidator rejects a value that is not one of the allowed names.
-func existsValidator(kind string, allowed []string) func(string) error {
+// existsValidator rejects a value that is not one of the allowed names,
+// returning an error that wraps errReferenceUnknown.
+func existsValidator(allowed []string) func(string) error {
 	return func(value string) error {
 		for _, name := range allowed {
 			if name == value {
 				return nil
 			}
 		}
-		return fmt.Errorf("%s %q does not exist", kind, value)
+		return fmt.Errorf("%w: %q", errReferenceUnknown, value)
 	}
 }
