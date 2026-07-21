@@ -88,6 +88,15 @@ func (m *Model) SetWidth(width int) {
 	m.width = width
 }
 
+// Values returns the current trimmed value of every field, keyed by Field.Key.
+func (m *Model) Values() map[string]string {
+	values := make(map[string]string, len(m.fields))
+	for i, f := range m.fields {
+		values[f.Key] = strings.TrimSpace(m.inputs[i].Value())
+	}
+	return values
+}
+
 // Update handles navigation, editing, submission, and cancellation. It returns
 // a Submitted or Canceled tea.Cmd when the form terminates.
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) { //nolint:gocritic // Bubble Tea value-receiver idiom; refactor tracked separately

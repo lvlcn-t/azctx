@@ -10,6 +10,6 @@ type TenantsTab struct {
 
 func tenantsTab(s *state.UI, l listBuilder) *TenantsTab { //nolint:gocritic // irrelevant on startup
 	return &TenantsTab{
-		browseTab: newBrowseTab(s, tenantItems, l),
+		browseTab: newCRUDBrowseTab(s, tenantItems, l),
 	}
 }
