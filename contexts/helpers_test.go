@@ -1,7 +1,10 @@
 package contexts
 
 import (
+	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/lvlcn-t/azctx/config"
@@ -35,6 +38,25 @@ func loadStore(t *testing.T) *config.Store {
 	require.NoError(t, err)
 
 	return &store
+}
+
+// writeConfigs writes multiple config files to a temp dir and points azctx at
+// all of them (colon-joined). It returns the paths in the given order.
+func writeConfigs(t *testing.T, cfgs ...*config.Config) []string {
+	t.Helper()
+
+	dir := t.TempDir()
+	writer := config.NewWriter()
+	paths := make([]string, len(cfgs))
+	for i, cfg := range cfgs {
+		path := filepath.Join(dir, fmt.Sprintf("azctx-%d.yaml", i))
+		require.NoError(t, writer.Write(path, cfg))
+		paths[i] = path
+	}
+
+	t.Setenv(config.ConfigEnvVar, strings.Join(paths, string(os.PathListSeparator)))
+
+	return paths
 }
 
 // readConfig reads a single config file from disk.
