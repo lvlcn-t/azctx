@@ -1,13 +1,10 @@
-package cmd
+package contexts
 
 import (
-	"bytes"
-	"context"
 	"path/filepath"
 	"testing"
 
 	"github.com/lvlcn-t/azctx/config"
-	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,45 +13,43 @@ const (
 	prodContext = "prod"
 )
 
-func writeConfig(t *testing.T, cfg *config.Config) {
+// writeConfig writes cfg to a temp file and points azctx at it via the config
+// env var. It returns the file path.
+func writeConfig(t *testing.T, cfg *config.Config) string {
 	t.Helper()
 
 	path := filepath.Join(t.TempDir(), "azctx.yaml")
 	writer := config.NewWriter()
 	require.NoError(t, writer.Write(path, cfg))
-
 	t.Setenv(config.ConfigEnvVar, path)
+
+	return path
 }
 
-func execCmd(t *testing.T, command *cobra.Command, args ...string) (stdout, stderr string, err error) {
+// loadStore loads the store from the config pointed to by writeConfig.
+func loadStore(t *testing.T) *config.Store {
 	t.Helper()
 
-	var stdoutBuffer bytes.Buffer
-	var stderrBuffer bytes.Buffer
+	loader := config.NewLoader()
+	store, err := loader.Load()
+	require.NoError(t, err)
 
-	command.SetOut(&stdoutBuffer)
-	command.SetErr(&stderrBuffer)
-	command.SilenceErrors = true
-	command.SilenceUsage = true
-	command.SetArgs(args)
-
-	err = command.Execute()
-
-	return stdoutBuffer.String(), stderrBuffer.String(), err
+	return &store
 }
 
-func newRunCmd() (cmd *cobra.Command, stdout *bytes.Buffer) {
-	stdout = &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
+// readConfig reads a single config file from disk.
+func readConfig(t *testing.T, path string) *config.Config {
+	t.Helper()
 
-	cmd = &cobra.Command{} //nolint:exhaustruct // minimal command for unit execution
-	cmd.SetOut(stdout)
-	cmd.SetErr(stderr)
-	cmd.SetContext(context.Background())
+	loader := config.NewLoader()
+	cfg, err := loader.Read(path)
+	require.NoError(t, err)
 
-	return cmd, stdout
+	return &cfg
 }
 
+// baseConfig returns a config with two tenants, two credentials, and two
+// contexts, with dev as the current context.
 func baseConfig() *config.Config {
 	return &config.Config{
 		CurrentContext: devContext,

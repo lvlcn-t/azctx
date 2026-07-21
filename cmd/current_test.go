@@ -4,14 +4,15 @@ import (
 	"testing"
 
 	"github.com/lvlcn-t/azctx/config"
+	"github.com/lvlcn-t/azctx/contexts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCurrentText(t *testing.T) {
-	writeConfigForTest(t, baseConfig())
+	writeConfig(t, baseConfig())
 
-	stdout, _, err := executeCommand(t, newCurrentCmd())
+	stdout, _, err := execCmd(t, newCurrentCmd())
 	require.NoError(t, err)
 
 	assert.Equal(t, "dev\n", stdout)
@@ -20,17 +21,17 @@ func TestCurrentText(t *testing.T) {
 func TestCurrentNoCurrentContext(t *testing.T) {
 	cfg := baseConfig()
 	cfg.CurrentContext = ""
-	writeConfigForTest(t, cfg)
+	writeConfig(t, cfg)
 
-	_, _, err := executeCommand(t, newCurrentCmd())
+	_, _, err := execCmd(t, newCurrentCmd())
 	require.Error(t, err)
-	assert.ErrorIs(t, err, errCurrentContextUnset)
+	assert.ErrorIs(t, err, contexts.ErrCurrentContextUnset)
 }
 
 func TestCurrentVerboseText(t *testing.T) {
-	writeConfigForTest(t, baseConfig())
+	writeConfig(t, baseConfig())
 
-	stdout, _, err := executeCommand(t, newCurrentCmd(), "--verbose")
+	stdout, _, err := execCmd(t, newCurrentCmd(), "--verbose")
 	require.NoError(t, err)
 
 	assert.Contains(t, stdout, "name: dev")
@@ -39,9 +40,9 @@ func TestCurrentVerboseText(t *testing.T) {
 }
 
 func TestCurrentVerboseTable(t *testing.T) {
-	writeConfigForTest(t, baseConfig())
+	writeConfig(t, baseConfig())
 
-	stdout, _, err := executeCommand(t, newCurrentCmd(), "--verbose", "-o", "table")
+	stdout, _, err := execCmd(t, newCurrentCmd(), "--verbose", "-o", "table")
 	require.NoError(t, err)
 
 	assert.Contains(t, stdout, "CURRENT")
@@ -51,9 +52,9 @@ func TestCurrentVerboseTable(t *testing.T) {
 }
 
 func TestCurrentJSON(t *testing.T) {
-	writeConfigForTest(t, baseConfig())
+	writeConfig(t, baseConfig())
 
-	stdout, _, err := executeCommand(t, newCurrentCmd(), "-o", "json")
+	stdout, _, err := execCmd(t, newCurrentCmd(), "-o", "json")
 	require.NoError(t, err)
 
 	assert.Contains(t, stdout, `"name": "dev"`)
@@ -61,9 +62,9 @@ func TestCurrentJSON(t *testing.T) {
 }
 
 func TestCurrentTable(t *testing.T) {
-	writeConfigForTest(t, baseConfig())
+	writeConfig(t, baseConfig())
 
-	stdout, _, err := executeCommand(t, newCurrentCmd(), "-o", "table")
+	stdout, _, err := execCmd(t, newCurrentCmd(), "-o", "table")
 	require.NoError(t, err)
 
 	assert.Contains(t, stdout, "CURRENT")
@@ -75,9 +76,9 @@ func TestCurrentTable(t *testing.T) {
 func TestCurrentContextMissingFromList(t *testing.T) {
 	cfg := baseConfig()
 	cfg.CurrentContext = "ghost"
-	writeConfigForTest(t, cfg)
+	writeConfig(t, cfg)
 
-	_, _, err := executeCommand(t, newCurrentCmd())
+	_, _, err := execCmd(t, newCurrentCmd())
 	require.Error(t, err)
 	assert.ErrorContains(t, err, `context "ghost" not found`)
 }
@@ -85,7 +86,7 @@ func TestCurrentContextMissingFromList(t *testing.T) {
 func TestCurrentLoadError(t *testing.T) {
 	t.Setenv(config.ConfigEnvVar, "~other/config.yaml")
 	command := &currentCmd{loader: config.NewLoader()}
-	runCommand, _ := newRunCommand()
+	runCommand, _ := newRunCmd()
 
 	err := command.run(runCommand, nil)
 	require.Error(t, err)

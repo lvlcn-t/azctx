@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/lvlcn-t/azctx/config"
+	"github.com/lvlcn-t/azctx/login"
 	"github.com/lvlcn-t/azctx/tui"
 	"github.com/lvlcn-t/azctx/tui/state"
 	"github.com/spf13/cobra"
@@ -39,8 +40,8 @@ var AzCtx = &cobra.Command{
 			return nil
 		}
 
-		switcher := newContextSwitcher()
-		if err = switcher.switchContext(cmd.Context(), &store, choice); err != nil {
+		mgr := login.New()
+		if err = mgr.Login(cmd.Context(), &store, choice); err != nil {
 			return err
 		}
 

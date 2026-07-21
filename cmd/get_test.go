@@ -8,9 +8,9 @@ import (
 )
 
 func TestGetByName(t *testing.T) {
-	writeConfigForTest(t, baseConfig())
+	writeConfig(t, baseConfig())
 
-	stdout, _, err := executeCommand(t, newGetCmd(), "prod")
+	stdout, _, err := execCmd(t, newGetCmd(), "prod")
 	require.NoError(t, err)
 
 	assert.Contains(t, stdout, "name: prod")
@@ -18,18 +18,18 @@ func TestGetByName(t *testing.T) {
 }
 
 func TestGetCurrentContext(t *testing.T) {
-	writeConfigForTest(t, baseConfig())
+	writeConfig(t, baseConfig())
 
-	stdout, _, err := executeCommand(t, newGetCmd())
+	stdout, _, err := execCmd(t, newGetCmd())
 	require.NoError(t, err)
 
 	assert.Contains(t, stdout, "name: dev")
 }
 
 func TestGetNotFound(t *testing.T) {
-	writeConfigForTest(t, baseConfig())
+	writeConfig(t, baseConfig())
 
-	_, _, err := executeCommand(t, newGetCmd(), "unknown")
+	_, _, err := execCmd(t, newGetCmd(), "unknown")
 	require.Error(t, err)
 	assert.ErrorContains(t, err, `context "unknown" not found`)
 }

@@ -4,19 +4,20 @@ import (
 	"fmt"
 
 	"github.com/lvlcn-t/azctx/config"
+	"github.com/lvlcn-t/azctx/contexts"
 	"github.com/spf13/cobra"
 )
 
 type deleteCtxCmd struct {
-	writer config.Writer
-	loader config.Loader
+	manager *contexts.Manager
+	loader  config.Loader
 }
 
 // newDeleteCtxCmd removes a context entry from config.
 func newDeleteCtxCmd() *cobra.Command {
 	command := &deleteCtxCmd{
-		loader: config.NewLoader(),
-		writer: config.NewWriter(),
+		loader:  config.NewLoader(),
+		manager: contexts.New(),
 	}
 
 	cmd := &cobra.Command{
@@ -41,30 +42,22 @@ func (c *deleteCtxCmd) run(cmd *cobra.Command, args []string) error {
 	}
 
 	name := args[0]
-	if _, found := store.Config.ContextByName(name); !found {
-		return fmt.Errorf("context %q not found", name)
-	}
 
-	path := store.PathForContext(name)
-	cfg := store.FileConfig(path)
-	if deleted := cfg.DeleteContext(name); !deleted {
-		return fmt.Errorf("context %q not found in %q", name, path)
-	}
-
-	if err := c.writer.Write(path, &cfg); err != nil {
+	res, err := c.manager.DeleteContext(&store, name)
+	if err != nil {
 		return err
 	}
 
-	if store.Config.CurrentContext == name {
-		if _, warnErr := fmt.Fprintf(
+	if res.WasActive {
+		if _, err = fmt.Fprintf(
 			cmd.ErrOrStderr(),
 			"warning: this removed your active context, use %q to select a different one\n",
 			"azctx use",
-		); warnErr != nil {
-			return warnErr
+		); err != nil {
+			return err
 		}
 	}
 
-	_, writeErr := fmt.Fprintf(cmd.OutOrStdout(), "deleted context %q from %s\n", name, path)
-	return writeErr
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), "deleted context %q from %s\n", name, res.Path)
+	return err
 }

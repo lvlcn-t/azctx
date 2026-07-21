@@ -8,9 +8,9 @@ import (
 )
 
 func TestViewMerged(t *testing.T) {
-	writeConfigForTest(t, baseConfig())
+	writeConfig(t, baseConfig())
 
-	stdout, _, err := executeCommand(t, newViewCmd())
+	stdout, _, err := execCmd(t, newViewCmd())
 	require.NoError(t, err)
 
 	assert.Contains(t, stdout, "SECTION")

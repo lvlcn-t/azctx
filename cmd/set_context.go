@@ -4,19 +4,20 @@ import (
 	"fmt"
 
 	"github.com/lvlcn-t/azctx/config"
+	"github.com/lvlcn-t/azctx/contexts"
 	"github.com/spf13/cobra"
 )
 
 type setCtxCmd struct {
-	writer config.Writer
-	loader config.Loader
+	manager *contexts.Manager
+	loader  config.Loader
 }
 
 // newSetCtxCmd creates or updates a context entry in config.
 func newSetCtxCmd() *cobra.Command {
 	command := &setCtxCmd{
-		loader: config.NewLoader(),
-		writer: config.NewWriter(),
+		loader:  config.NewLoader(),
+		manager: contexts.New(),
 	}
 
 	cmd := &cobra.Command{
@@ -44,9 +45,6 @@ func (c *setCtxCmd) run(cmd *cobra.Command, args []string) error {
 	}
 
 	ctx := args[0]
-	if ctx == "" {
-		return fmt.Errorf("context name must not be empty")
-	}
 
 	tenant, err := cmd.Flags().GetString("tenant")
 	if err != nil {
@@ -63,33 +61,21 @@ func (c *setCtxCmd) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("read subscription flag: %w", err)
 	}
 
-	nextCtx, hasExistingInMerged := nextContextFromFlags(
-		&store.Config,
-		ctx,
-		tenant,
-		credential,
-		subscriptionID,
+	next := config.Context{
+		Name: ctx,
+		Details: config.ContextDetails{
+			Tenant:       tenant,
+			Credential:   credential,
+			Subscription: subscriptionID,
+		},
+	}
+
+	hasExistingInMerged, err := c.manager.SetContext(
+		&store,
+		next,
 		cmd.Flags().Changed("subscription"),
 	)
-
-	if err = store.Config.ValidateContextReferences(nextCtx); err != nil {
-		return err
-	}
-
-	t, _ := store.Config.TenantByName(nextCtx.Details.Tenant)
-	if t.Details.ID == "" {
-		return fmt.Errorf("tenant %q is missing id", t.Name)
-	}
-
-	cred, _ := store.Config.CredentialByName(nextCtx.Details.Credential)
-	if err = cred.Validate(); err != nil {
-		return err
-	}
-
-	path := store.PathForContext(ctx)
-	cfg := store.FileConfig(path)
-	cfg.UpsertContext(nextCtx)
-	if err = c.writer.Write(path, &cfg); err != nil {
+	if err != nil {
 		return err
 	}
 
@@ -100,43 +86,4 @@ func (c *setCtxCmd) run(cmd *cobra.Command, args []string) error {
 
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Context %q created.\n", ctx)
 	return err
-}
-
-// nextContextFromFlags resolves the effective context payload for upserts.
-func nextContextFromFlags(
-	cfg *config.Config,
-	ctx string,
-	tenant string,
-	credential string,
-	subscriptionID string,
-	subscriptionChanged bool,
-) (config.Context, bool) {
-	nextCtx := config.Context{
-		Name: ctx,
-		Details: config.ContextDetails{
-			Tenant:       tenant,
-			Credential:   credential,
-			Subscription: subscriptionID,
-		},
-	}
-
-	existing, ok := cfg.ContextByName(ctx)
-	if !ok {
-		return nextCtx, false
-	}
-
-	nextCtx = existing
-	if tenant != "" {
-		nextCtx.Details.Tenant = tenant
-	}
-
-	if credential != "" {
-		nextCtx.Details.Credential = credential
-	}
-
-	if subscriptionChanged {
-		nextCtx.Details.Subscription = subscriptionID
-	}
-
-	return nextCtx, true
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/lvlcn-t/azctx/az"
 	"github.com/lvlcn-t/azctx/config"
+	"github.com/lvlcn-t/azctx/contexts"
 	"github.com/lvlcn-t/azctx/output"
 	"github.com/spf13/cobra"
 )
@@ -54,7 +55,7 @@ func (c *getCmd) run(cmd *cobra.Command, args []string) error {
 	if len(args) == 1 {
 		name = args[0]
 	} else {
-		name, err = mustCurrentContextName(&store.Config)
+		name, err = contexts.CurrentContextName(&store.Config)
 		if err != nil {
 			return err
 		}
