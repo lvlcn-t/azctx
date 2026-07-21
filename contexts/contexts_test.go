@@ -238,3 +238,45 @@ func TestManager_DeleteContext_NotFound(t *testing.T) {
 	_, err := New().DeleteContext(store, "ghost")
 	require.Error(t, err)
 }
+
+func TestManager_DeleteTenant(t *testing.T) {
+	path := writeConfig(t, baseConfig())
+	store := loadStore(t)
+
+	result, err := New().DeleteTenant(store, "platform")
+	require.NoError(t, err)
+	assert.Equal(t, path, result.Path)
+	assert.False(t, result.WasActive)
+
+	_, found := readConfig(t, path).TenantByName("platform")
+	assert.False(t, found)
+}
+
+func TestManager_DeleteTenant_NotFound(t *testing.T) {
+	writeConfig(t, baseConfig())
+	store := loadStore(t)
+
+	_, err := New().DeleteTenant(store, "ghost")
+	require.Error(t, err)
+}
+
+func TestManager_DeleteCredential(t *testing.T) {
+	path := writeConfig(t, baseConfig())
+	store := loadStore(t)
+
+	result, err := New().DeleteCredential(store, "sp")
+	require.NoError(t, err)
+	assert.Equal(t, path, result.Path)
+	assert.False(t, result.WasActive)
+
+	_, found := readConfig(t, path).CredentialByName("sp")
+	assert.False(t, found)
+}
+
+func TestManager_DeleteCredential_NotFound(t *testing.T) {
+	writeConfig(t, baseConfig())
+	store := loadStore(t)
+
+	_, err := New().DeleteCredential(store, "ghost")
+	require.Error(t, err)
+}

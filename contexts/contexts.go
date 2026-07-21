@@ -131,11 +131,12 @@ func (m *Manager) RenameContext(store *config.Store, oldName, newName string) er
 	return nil
 }
 
-// DeleteResult reports the outcome of a DeleteContext call.
+// DeleteResult reports the outcome of a delete call.
 type DeleteResult struct {
-	// Path is the config file the context was removed from.
+	// Path is the config file the entry was removed from.
 	Path string
-	// WasActive reports whether the deleted context was the current one.
+	// WasActive reports whether the deleted context was the current one. It is
+	// always false for tenants and credentials.
 	WasActive bool
 }
 
@@ -157,6 +158,62 @@ func (m *Manager) DeleteContext(store *config.Store, name string) (DeleteResult,
 	}
 
 	return DeleteResult{Path: path, WasActive: store.Config.CurrentContext == name}, nil
+}
+
+// DeleteTenant removes a tenant entry and reports where it lived. Deleting a
+// tenant that is still referenced by a context leaves that context dangling;
+// callers should warn the user.
+func (m *Manager) DeleteTenant(store *config.Store, name string) (DeleteResult, error) {
+	_, found := store.Config.TenantByName(name)
+	return m.deleteEntry(store, entryTarget{
+		kind:    "tenant",
+		name:    name,
+		found:   found,
+		path:    store.PathForTenant(name),
+		deleteX: func(cfg *config.Config) bool { return cfg.DeleteTenant(name) },
+	})
+}
+
+// DeleteCredential removes a credential entry and reports where it lived.
+// Deleting a credential that is still referenced by a context leaves that
+// context dangling; callers should warn the user.
+func (m *Manager) DeleteCredential(store *config.Store, name string) (DeleteResult, error) {
+	_, found := store.Config.CredentialByName(name)
+	return m.deleteEntry(store, entryTarget{
+		kind:    "credential",
+		name:    name,
+		found:   found,
+		path:    store.PathForCredential(name),
+		deleteX: func(cfg *config.Config) bool { return cfg.DeleteCredential(name) },
+	})
+}
+
+// entryTarget describes a non-context entry to delete.
+type entryTarget struct {
+	deleteX func(cfg *config.Config) bool
+	kind    string
+	name    string
+	path    string
+	found   bool
+}
+
+// deleteEntry removes a tenant or credential entry. Contexts use DeleteContext
+// directly because they additionally report whether the active context changed.
+func (m *Manager) deleteEntry(store *config.Store, t entryTarget) (DeleteResult, error) {
+	if !t.found {
+		return DeleteResult{}, fmt.Errorf("%s %q not found", t.kind, t.name)
+	}
+
+	cfg := store.FileConfig(t.path)
+	if deleted := t.deleteX(&cfg); !deleted {
+		return DeleteResult{}, fmt.Errorf("%s %q not found in %q", t.kind, t.name, t.path)
+	}
+
+	if err := m.Writer.Write(t.path, &cfg); err != nil {
+		return DeleteResult{}, err
+	}
+
+	return DeleteResult{Path: t.path}, nil
 }
 
 // merge resolves the effective context payload for an upsert. For a new context

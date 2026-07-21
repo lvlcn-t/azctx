@@ -76,6 +76,26 @@ func TestUpsertsAndDeletes(t *testing.T) {
 	assert.False(t, cfg.DeleteContext(ctx2.Name))
 }
 
+func TestDeleteTenant(t *testing.T) {
+	cfg := newTestConfig(t).
+		withTenant("corp").
+		build()
+
+	assert.True(t, cfg.DeleteTenant("corp"))
+	assert.Empty(t, cfg.Tenants)
+	assert.False(t, cfg.DeleteTenant("corp"))
+}
+
+func TestDeleteCredential(t *testing.T) {
+	cfg := newTestConfig(t).
+		withUserCredential("me").
+		build()
+
+	assert.True(t, cfg.DeleteCredential("me"))
+	assert.Empty(t, cfg.Credentials)
+	assert.False(t, cfg.DeleteCredential("me"))
+}
+
 func TestRenameContext(t *testing.T) {
 	cfg := newTestConfig(t).
 		withContext("old", "corp", "ci").

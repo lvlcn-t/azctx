@@ -119,6 +119,30 @@ func (cfg *Config) DeleteContext(name string) bool {
 	return false
 }
 
+// DeleteTenant removes a tenant by name.
+func (cfg *Config) DeleteTenant(name string) bool {
+	for index, tenant := range cfg.Tenants {
+		if tenant.Name == name {
+			cfg.Tenants = append(cfg.Tenants[:index], cfg.Tenants[index+1:]...)
+			return true
+		}
+	}
+
+	return false
+}
+
+// DeleteCredential removes a credential by name.
+func (cfg *Config) DeleteCredential(name string) bool {
+	for index, credential := range cfg.Credentials {
+		if credential.Name == name {
+			cfg.Credentials = append(cfg.Credentials[:index], cfg.Credentials[index+1:]...)
+			return true
+		}
+	}
+
+	return false
+}
+
 // RenameContext renames an existing context.
 func (cfg *Config) RenameContext(oldName, newName string) bool {
 	for index, context := range cfg.Contexts {

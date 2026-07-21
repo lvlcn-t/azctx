@@ -49,6 +49,13 @@ func (u *UI) Config() *config.Store {
 	return u.config
 }
 
+// SetConfig replaces the store, e.g. after a write reloads it from disk.
+func (u *UI) SetConfig(cfg *config.Store) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.config = cfg
+}
+
 func (u *UI) Mode() Mode {
 	u.mu.RLock()
 	defer u.mu.RUnlock()
