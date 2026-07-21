@@ -19,6 +19,17 @@ const (
 	fieldTenant       = "tenant"
 	fieldCredential   = "credential"
 	fieldSubscription = "subscription"
+
+	fieldType         = "type"
+	fieldClientID     = "client-id"
+	fieldClientSecret = "client-secret"
+	fieldCertPath     = "client-certificate-path"
+	fieldTokenSource  = "token-source"
+	fieldTokenFile    = "federated-token-file"
+	fieldIssuer       = "issuer"
+	fieldOIDCClientID = "oidc-client-id"
+	fieldRedirectURI  = "redirect-uri"
+	fieldScopes       = "scopes"
 )
 
 // Tab represents a single tab in the UI, responsible for rendering its content and handling interactions.

@@ -26,6 +26,11 @@ type Manager interface {
 	UpdateContext(store *config.Store, next config.Context, subscriptionChanged bool) error
 	RenameContext(store *config.Store, oldName, newName string) error
 	DeleteContext(store *config.Store, name string) (contexts.DeleteResult, error)
+
+	CreateCredential(store *config.Store, cred *config.Credential) error
+	UpdateCredential(store *config.Store, cred *config.Credential) error
+	RenameCredential(store *config.Store, oldName, newName string) (contexts.RenameResult, error)
+	DeleteCredential(store *config.Store, name string) (contexts.DeleteResult, error)
 }
 
 // formIntent records what a submitted form should do.
@@ -293,6 +298,12 @@ func (t *Tabs) buildForm(intent formIntent, item details.Item) (form.Model, bool
 		}
 		return contextForm(intent, t.state.Config(), item), true
 
+	case *CredentialsTab:
+		if intent == intentRename {
+			return renameForm("credential", item), true
+		}
+		return credentialForm(intent, item), true
+
 	default:
 		return form.Model{}, false
 	}
@@ -308,6 +319,36 @@ func (t *Tabs) applyForm(values map[string]string) tea.Cmd {
 		return t.applyTenantForm(values)
 	case *ContextsTab:
 		return t.applyContextForm(values)
+	case *CredentialsTab:
+		return t.applyCredentialForm(values)
+	default:
+		return nil
+	}
+}
+
+// applyCredentialForm maps a submitted credential form to the matching intent
+// method.
+func (t *Tabs) applyCredentialForm(values map[string]string) tea.Cmd {
+	store := t.state.Config()
+	cred := credentialFromValues(values)
+
+	switch t.intent {
+	case intentCreate:
+		err := t.manager.CreateCredential(store, cred)
+		return t.finish(err, "created credential "+cred.Name)
+
+	case intentEdit:
+		err := t.manager.UpdateCredential(store, cred)
+		return t.finish(err, "updated credential "+cred.Name)
+
+	case intentRename:
+		item, ok := t.pending.(*CredentialItem)
+		if !ok {
+			return nil
+		}
+		result, err := t.manager.RenameCredential(store, item.Name, values[fieldName])
+		return t.finish(err, renameStatus("credential", item.Name, values[fieldName], result.UpdatedContexts))
+
 	default:
 		return nil
 	}
@@ -389,6 +430,10 @@ func (t *Tabs) applyDelete() tea.Cmd {
 		}
 		return t.finish(err, status)
 
+	case *CredentialItem:
+		result, err := t.manager.DeleteCredential(t.state.Config(), item.Name)
+		return t.finish(err, deleteStatus("credential", item.Name, result.OrphanedContexts))
+
 	default:
 		return nil
 	}
@@ -432,6 +477,8 @@ func deletableLabel(item details.Item) (string, bool) {
 		return "tenant " + it.Name, true
 	case *ContextItem:
 		return "context " + it.Name, true
+	case *CredentialItem:
+		return "credential " + it.Name, true
 	default:
 		return "", false
 	}

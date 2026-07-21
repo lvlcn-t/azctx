@@ -9,6 +9,7 @@ import (
 	"github.com/lvlcn-t/azctx/config"
 	"github.com/lvlcn-t/azctx/keyvault"
 	"github.com/lvlcn-t/azctx/tui/details"
+	"github.com/lvlcn-t/azctx/tui/form"
 )
 
 var (
@@ -124,4 +125,108 @@ func (i *CredentialItem) workloadIdentityRows() []details.Row {
 	}
 
 	return rows
+}
+
+// credentialForm builds the create or edit form for a credential. All fields
+// are shown; only the ones relevant to the chosen type are used at submit time,
+// where the domain validates the result. On edit the name is locked read-only.
+func credentialForm(intent formIntent, item details.Item) form.Model {
+	var c config.Credential
+	title := "New credential"
+	readonly := false
+	if cred, ok := item.(*CredentialItem); ok && intent == intentEdit {
+		c = cred.Credential
+		title = "Edit credential"
+		readonly = true
+	}
+
+	azure := c.Details.Azure
+	oauth := config.OAuth2Source{}
+	tokenFile := ""
+	if c.Details.Token.OAuth2 != nil {
+		oauth = *c.Details.Token.OAuth2
+	}
+	if c.Details.Token.File != nil {
+		tokenFile = c.Details.Token.File.Path
+	}
+	return form.New(title, []form.Field{
+		{Key: fieldName, Label: labelName, Placeholder: "my-credential", Value: c.Name, Required: true, ReadOnly: readonly},
+		{
+			Key: fieldType, Label: "Type", Value: c.Details.Type.String(), Required: true,
+			Placeholder: "user | service-principal | managed-identity | workload-identity",
+			Validate:    credentialTypeValidator,
+		},
+		{Key: fieldClientID, Label: "Client ID", Value: azure.ClientID, Placeholder: "for sp/mi/wif"},
+		{Key: fieldClientSecret, Label: "Client Secret", Value: azure.ClientSecret, Placeholder: "for service-principal"},
+		{Key: fieldCertPath, Label: "Cert Path", Value: azure.ClientCertificatePath, Placeholder: "for service-principal"},
+		{Key: fieldTokenSource, Label: "Token Source", Value: c.Details.Token.Source.String(), Placeholder: "file | oauth2 (for wif)"},
+		{Key: fieldTokenFile, Label: "Token File", Value: tokenFile, Placeholder: "for wif file source"},
+		{Key: fieldIssuer, Label: "OIDC Issuer", Value: oauth.Issuer, Placeholder: "for wif oauth2"},
+		{Key: fieldOIDCClientID, Label: "OIDC Client ID", Value: oauth.ClientID, Placeholder: "for wif oauth2"},
+		{Key: fieldRedirectURI, Label: "Redirect URI", Value: oauth.RedirectURI, Placeholder: "optional"},
+		{Key: fieldScopes, Label: "Scopes", Value: strings.Join(oauth.Scopes, ","), Placeholder: "comma-separated"},
+	})
+}
+
+// credentialTypeValidator rejects an unsupported credential type.
+func credentialTypeValidator(value string) error {
+	_, err := config.NewCredentialType(value)
+	return err
+}
+
+// credentialFromValues assembles a config.Credential from submitted form values.
+// Only the fields relevant to the chosen type are populated; the domain
+// validates the result.
+func credentialFromValues(values map[string]string) *config.Credential {
+	credType, _ := config.NewCredentialType(values[fieldType])
+
+	d := config.CredentialDetails{
+		Type: credType,
+		Azure: config.AzureCredential{
+			ClientID:              values[fieldClientID],
+			ClientSecret:          values[fieldClientSecret],
+			ClientCertificatePath: values[fieldCertPath],
+		},
+	}
+
+	if credType == config.CredentialTypeWorkloadIdentity {
+		d.Token = tokenFromValues(values)
+	}
+
+	return &config.Credential{Name: values[fieldName], Details: d}
+}
+
+// tokenFromValues builds the token details for a workload-identity credential.
+func tokenFromValues(values map[string]string) config.TokenDetails {
+	source := config.TokenSource(values[fieldTokenSource])
+	token := config.TokenDetails{Source: source}
+
+	switch source {
+	case config.TokenSourceFile:
+		token.File = &config.FileSource{Path: values[fieldTokenFile]}
+	case config.TokenSourceOAuth2:
+		token.OAuth2 = &config.OAuth2Source{
+			Issuer:      values[fieldIssuer],
+			ClientID:    values[fieldOIDCClientID],
+			RedirectURI: values[fieldRedirectURI],
+			Scopes:      splitScopes(values[fieldScopes]),
+		}
+	}
+
+	return token
+}
+
+// splitScopes parses a comma-separated scope list, trimming blanks.
+func splitScopes(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+
+	var scopes []string
+	for _, s := range strings.Split(raw, ",") {
+		if trimmed := strings.TrimSpace(s); trimmed != "" {
+			scopes = append(scopes, trimmed)
+		}
+	}
+	return scopes
 }

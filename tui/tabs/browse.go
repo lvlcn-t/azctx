@@ -19,16 +19,7 @@ type browseTab struct {
 	keys    tabKeys
 }
 
-func newBrowseTab(s *state.UI, rebuild func(*config.Store) []list.Item, l listBuilder) browseTab { //nolint:gocritic // irrelevant on startup
-	tk := newTabKeys(
-		keys.New(keys.Enter).WithHelp("view").WithAliases(keys.View, keys.Describe).Bind(),
-		key.Binding{},
-		keys.New(keys.Escape).WithHelp("close").Bind(),
-	)
-	return buildBrowseTab(s, rebuild, l, tk)
-}
-
-// newCRUDBrowseTab is like newBrowseTab but also binds create, edit, rename, and
+// newCRUDBrowseTab builds a browse tab that also binds create, edit, rename, and
 // delete keys so the tab can emit CRUD actions.
 func newCRUDBrowseTab(s *state.UI, rebuild func(*config.Store) []list.Item, l listBuilder) browseTab { //nolint:gocritic // irrelevant on startup
 	tk := newTabKeys(
