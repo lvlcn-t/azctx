@@ -55,7 +55,7 @@ func tenantForm(intent formIntent, item details.Item) form.Model {
 	}
 
 	return form.New(title, []form.Field{
-		{Key: "name", Label: labelName, Placeholder: "my-tenant", Value: name, Required: true, ReadOnly: readonly},
-		{Key: "id", Label: "ID", Placeholder: "00000000-0000-0000-0000-000000000000", Value: id, Required: true},
+		{Key: fieldName, Label: labelName, Placeholder: "my-tenant", Value: name, Required: true, ReadOnly: readonly},
+		{Key: fieldID, Label: "ID", Placeholder: "00000000-0000-0000-0000-000000000000", Value: id, Required: true},
 	})
 }

@@ -21,6 +21,11 @@ type Manager interface {
 	UpdateTenant(store *config.Store, name, id string) error
 	RenameTenant(store *config.Store, oldName, newName string) (contexts.RenameResult, error)
 	DeleteTenant(store *config.Store, name string) (contexts.DeleteResult, error)
+
+	CreateContext(store *config.Store, next config.Context) error
+	UpdateContext(store *config.Store, next config.Context, subscriptionChanged bool) error
+	RenameContext(store *config.Store, oldName, newName string) error
+	DeleteContext(store *config.Store, name string) (contexts.DeleteResult, error)
 }
 
 // formIntent records what a submitted form should do.
@@ -275,13 +280,22 @@ func (t *Tabs) openDelete(item details.Item) tea.Cmd {
 // for edit and rename. The second return is false when the active tab does not
 // support the requested form.
 func (t *Tabs) buildForm(intent formIntent, item details.Item) (form.Model, bool) {
-	if _, ok := t.tabs[t.active].(*TenantsTab); ok {
+	switch t.tabs[t.active].(type) {
+	case *TenantsTab:
 		if intent == intentRename {
 			return renameForm("tenant", item), true
 		}
 		return tenantForm(intent, item), true
+
+	case *ContextsTab:
+		if intent == intentRename {
+			return renameForm("context", item), true
+		}
+		return contextForm(intent, t.state.Config(), item), true
+
+	default:
+		return form.Model{}, false
 	}
-	return form.Model{}, false
 }
 
 // applyForm persists the submitted form values according to the active tab and
@@ -289,8 +303,49 @@ func (t *Tabs) buildForm(intent formIntent, item details.Item) (form.Model, bool
 func (t *Tabs) applyForm(values map[string]string) tea.Cmd {
 	t.state.Transition(state.Tabs)
 
-	// PR2 wires tenants only; contexts and credentials follow.
-	return t.applyTenantForm(values)
+	switch t.tabs[t.active].(type) {
+	case *TenantsTab:
+		return t.applyTenantForm(values)
+	case *ContextsTab:
+		return t.applyContextForm(values)
+	default:
+		return nil
+	}
+}
+
+// applyContextForm maps a submitted context form to the matching intent method.
+func (t *Tabs) applyContextForm(values map[string]string) tea.Cmd {
+	store := t.state.Config()
+	next := config.Context{
+		Name: values[fieldName],
+		Details: config.ContextDetails{
+			Tenant:       values[fieldTenant],
+			Credential:   values[fieldCredential],
+			Subscription: values[fieldSubscription],
+		},
+	}
+
+	switch t.intent {
+	case intentCreate:
+		err := t.manager.CreateContext(store, next)
+		return t.finish(err, "created context "+next.Name)
+
+	case intentEdit:
+		// The form always carries the subscription value, so treat it as changed.
+		err := t.manager.UpdateContext(store, next, true)
+		return t.finish(err, "updated context "+next.Name)
+
+	case intentRename:
+		item, ok := t.pending.(*ContextItem)
+		if !ok {
+			return nil
+		}
+		err := t.manager.RenameContext(store, item.Name, values[fieldName])
+		return t.finish(err, "renamed context "+item.Name+" to "+values[fieldName])
+
+	default:
+		return nil
+	}
 }
 
 // applyTenantForm maps a submitted tenant form to the matching intent method.
@@ -299,20 +354,20 @@ func (t *Tabs) applyTenantForm(values map[string]string) tea.Cmd {
 
 	switch t.intent {
 	case intentCreate:
-		err := t.manager.CreateTenant(store, values["name"], values["id"])
-		return t.finish(err, "created tenant "+values["name"])
+		err := t.manager.CreateTenant(store, values[fieldName], values[fieldID])
+		return t.finish(err, "created tenant "+values[fieldName])
 
 	case intentEdit:
-		err := t.manager.UpdateTenant(store, values["name"], values["id"])
-		return t.finish(err, "updated tenant "+values["name"])
+		err := t.manager.UpdateTenant(store, values[fieldName], values[fieldID])
+		return t.finish(err, "updated tenant "+values[fieldName])
 
 	case intentRename:
 		item, ok := t.pending.(*TenantItem)
 		if !ok {
 			return nil
 		}
-		result, err := t.manager.RenameTenant(store, item.Name, values["name"])
-		return t.finish(err, renameStatus("tenant", item.Name, values["name"], result.UpdatedContexts))
+		result, err := t.manager.RenameTenant(store, item.Name, values[fieldName])
+		return t.finish(err, renameStatus("tenant", item.Name, values[fieldName], result.UpdatedContexts))
 
 	default:
 		return nil
@@ -321,13 +376,22 @@ func (t *Tabs) applyTenantForm(values map[string]string) tea.Cmd {
 
 // applyDelete performs the pending delete.
 func (t *Tabs) applyDelete() tea.Cmd {
-	item, ok := t.pending.(*TenantItem)
-	if !ok {
+	switch item := t.pending.(type) {
+	case *TenantItem:
+		result, err := t.manager.DeleteTenant(t.state.Config(), item.Name)
+		return t.finish(err, deleteStatus("tenant", item.Name, result.OrphanedContexts))
+
+	case *ContextItem:
+		result, err := t.manager.DeleteContext(t.state.Config(), item.Name)
+		status := "deleted context " + item.Name
+		if result.WasActive {
+			status += " (warning: removed the active context; use a context to select a new one)"
+		}
+		return t.finish(err, status)
+
+	default:
 		return nil
 	}
-
-	result, err := t.manager.DeleteTenant(t.state.Config(), item.Name)
-	return t.finish(err, deleteStatus("tenant", item.Name, result.OrphanedContexts))
 }
 
 // finish reloads the tabs after a write and records a status message.
@@ -363,10 +427,14 @@ func (t *Tabs) reload() error {
 
 // deletableLabel returns a human label for a deletable item.
 func deletableLabel(item details.Item) (string, bool) {
-	if tenant, ok := item.(*TenantItem); ok {
-		return "tenant " + tenant.Name, true
+	switch it := item.(type) {
+	case *TenantItem:
+		return "tenant " + it.Name, true
+	case *ContextItem:
+		return "context " + it.Name, true
+	default:
+		return "", false
 	}
-	return "", false
 }
 
 // deleteStatus builds the status line for a delete, warning about orphans.
@@ -389,14 +457,24 @@ func renameStatus(kind, oldName, newName string, updated []string) string {
 
 // renameForm builds a single-field form asking for the entry's new name.
 func renameForm(kind string, item details.Item) form.Model {
-	current := ""
-	if named, ok := item.(interface{ Title() string }); ok {
-		current = named.Title()
-	}
-
+	current := entryName(item)
 	return form.New("Rename "+kind+" "+current, []form.Field{
-		{Key: "name", Label: "New name", Placeholder: current, Required: true},
+		{Key: fieldName, Label: "New name", Placeholder: current, Required: true},
 	})
+}
+
+// entryName returns the config name of a list item, without any display marker.
+func entryName(item details.Item) string {
+	switch it := item.(type) {
+	case *TenantItem:
+		return it.Name
+	case *ContextItem:
+		return it.Name
+	case *CredentialItem:
+		return it.Name
+	default:
+		return ""
+	}
 }
 
 func (t *Tabs) handleInteractiveSelect(item details.Item) tea.Cmd {

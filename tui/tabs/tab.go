@@ -12,6 +12,15 @@ import (
 // labelName is the shared display label for an entry's name field.
 const labelName = "Name"
 
+// Form field keys shared across the entry forms.
+const (
+	fieldName         = "name"
+	fieldID           = "id"
+	fieldTenant       = "tenant"
+	fieldCredential   = "credential"
+	fieldSubscription = "subscription"
+)
+
 // Tab represents a single tab in the UI, responsible for rendering its content and handling interactions.
 type Tab interface {
 	Resize(width, height int)

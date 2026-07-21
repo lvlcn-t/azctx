@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/lvlcn-t/azctx/config"
 	"github.com/lvlcn-t/azctx/tui/details"
+	"github.com/lvlcn-t/azctx/tui/form"
 	"github.com/lvlcn-t/azctx/tui/styles"
 )
 
@@ -75,5 +76,67 @@ func (i *ContextItem) Details() details.View {
 			{Label: "Subscription", Value: i.Subscription},
 			{Label: "Current", Value: fmt.Sprintf("%t", i.current)},
 		},
+	}
+}
+
+// contextForm builds the create or edit form for a context. On edit the name is
+// pre-filled and locked; tenant and credential must reference existing entries.
+// The tenant and credential help text lists the available names.
+func contextForm(intent formIntent, store *config.Store, item details.Item) form.Model {
+	var name, tenant, credential, subscription string
+	title := "New context"
+	readonly := false
+	if ctx, ok := item.(*ContextItem); ok && intent == intentEdit {
+		name = ctx.Name
+		tenant = ctx.Tenant.Name
+		credential = ctx.Credential.Name
+		subscription = ctx.Subscription
+		title = "Edit context"
+		readonly = true
+	}
+
+	return form.New(title, []form.Field{
+		{Key: fieldName, Label: labelName, Placeholder: "my-context", Value: name, Required: true, ReadOnly: readonly},
+		{
+			Key: fieldTenant, Label: "Tenant", Value: tenant, Required: true,
+			Placeholder: strings.Join(tenantNames(store), ", "),
+			Validate:    existsValidator("tenant", tenantNames(store)),
+		},
+		{
+			Key: fieldCredential, Label: "Credential", Value: credential, Required: true,
+			Placeholder: strings.Join(credentialNames(store), ", "),
+			Validate:    existsValidator("credential", credentialNames(store)),
+		},
+		{Key: fieldSubscription, Label: "Subscription", Value: subscription, Placeholder: "optional"},
+	})
+}
+
+// tenantNames returns the configured tenant names.
+func tenantNames(store *config.Store) []string {
+	names := make([]string, 0, len(store.Config.Tenants))
+	for _, t := range store.Config.Tenants {
+		names = append(names, t.Name)
+	}
+	return names
+}
+
+// credentialNames returns the configured credential names.
+func credentialNames(store *config.Store) []string {
+	names := make([]string, 0, len(store.Config.Credentials))
+	for _, c := range store.Config.Credentials {
+		names = append(names, c.Name)
+	}
+	return names
+}
+
+// existsValidator rejects a value that is not one of the allowed names.
+func existsValidator(kind string, allowed []string) func(string) error {
+	return func(value string) error {
+		for _, name := range allowed {
+			if name == value {
+				return nil
+			}
+		}
+		return fmt.Errorf("%s %q does not exist", kind, value)
 	}
 }
