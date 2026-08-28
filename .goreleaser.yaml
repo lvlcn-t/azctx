@@ -113,6 +113,32 @@ homebrew_casks:
       trash:
         - "~/.config/azctx"
 
+nix:
+  - name: azctx
+    ids:
+      - azctx
+    repository:
+      owner: lvlcn-t
+      name: nur
+      token: "{{ .Env.NUR_GITHUB_TOKEN }}"
+    path: pkgs/azctx/default.nix
+    commit_msg_template: "azctx: update to {{ .Tag }}"
+    commit_author:
+      name: lvlcn-t
+      email: 75443136+lvlcn-t@users.noreply.github.com
+    homepage: https://github.com/lvlcn-t/azctx
+    description: Faster way to switch between Azure tenants and subscriptions with az
+    license: mit
+    main_program: azctx
+    dependencies:
+      - azure-cli
+    extra_install: |
+      installShellCompletion --cmd azctx \
+        --bash completions/azctx.bash \
+        --fish completions/azctx.fish \
+        --zsh completions/azctx.zsh
+    formatter: nixfmt
+
 dockers_v2:
   - ids:
       - linux
