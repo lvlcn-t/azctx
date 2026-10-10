@@ -15,6 +15,8 @@ type Tab interface {
 	Update(msg tea.Msg) (TabAction, tea.Cmd)
 	View() string
 	Filtering() bool
+	// Reload rebuilds the tab's items from the current store, e.g. after a write.
+	Reload()
 }
 
 type tabKeys struct {
@@ -22,6 +24,10 @@ type tabKeys struct {
 	Prev   key.Binding
 	Select key.Binding
 	View   key.Binding
+	Create key.Binding
+	Edit   key.Binding
+	Rename key.Binding
+	Delete key.Binding
 	Close  key.Binding
 	Quit   key.Binding
 }
@@ -64,6 +70,14 @@ const (
 	TabActionNone TabActionKind = iota
 	TabActionShowDetails
 	TabActionSelect
+	// TabActionCreate opens a form to create a new entry.
+	TabActionCreate
+	// TabActionEdit opens a form pre-filled from Item to edit it.
+	TabActionEdit
+	// TabActionRename opens a form to rename Item.
+	TabActionRename
+	// TabActionDelete requests confirmation to delete Item.
+	TabActionDelete
 )
 
 func NoAction() TabAction {

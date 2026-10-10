@@ -4,32 +4,38 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/lvlcn-t/azctx/config"
 	"github.com/lvlcn-t/azctx/tui/details"
 	"github.com/lvlcn-t/azctx/tui/keys"
+	"github.com/lvlcn-t/azctx/tui/state"
 )
 
 var _ Tab = (*browseTab)(nil)
 
 type browseTab struct {
-	list list.Model
-	keys tabKeys
+	list    list.Model
+	state   *state.UI
+	rebuild func(*config.Store) []list.Item
+	keys    tabKeys
 }
 
-func newBrowseTab(l listBuilder) browseTab { //nolint:gocritic // irrelevant on startup
+func newBrowseTab(s *state.UI, rebuild func(*config.Store) []list.Item, l listBuilder) browseTab { //nolint:gocritic // irrelevant on startup
 	tk := newTabKeys(
 		keys.New(keys.Enter).WithHelp("view").WithAliases(keys.View, keys.Describe).Bind(),
 		key.Binding{},
 		keys.New(keys.Escape).WithHelp("close").Bind(),
 	)
 	return browseTab{
-		list: l.
+		list: l.WithItems(rebuild(s.Config())...).
 			ShowStatusBar(true).
 			ShowHelp(true).
 			EnableFiltering(true).
 			WithShortHelp(tk.Help()).
 			WithFullHelp(tk.Help()).
 			Build(),
-		keys: tk,
+		keys:    tk,
+		state:   s,
+		rebuild: rebuild,
 	}
 }
 
@@ -62,6 +68,11 @@ func (t *browseTab) Update(msg tea.Msg) (TabAction, tea.Cmd) {
 
 func (t *browseTab) Filtering() bool {
 	return t.list.FilterState() == list.Filtering
+}
+
+// Reload rebuilds the list items from the current store.
+func (t *browseTab) Reload() {
+	t.list.SetItems(t.rebuild(t.state.Config()))
 }
 
 func (t *browseTab) Resize(width, height int) {

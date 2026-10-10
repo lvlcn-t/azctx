@@ -76,6 +76,26 @@ func TestUpsertsAndDeletes(t *testing.T) {
 	assert.False(t, cfg.DeleteContext(ctx2.Name))
 }
 
+func TestDeleteTenant(t *testing.T) {
+	cfg := newTestConfig(t).
+		withTenant("corp").
+		build()
+
+	assert.True(t, cfg.DeleteTenant("corp"))
+	assert.Empty(t, cfg.Tenants)
+	assert.False(t, cfg.DeleteTenant("corp"))
+}
+
+func TestDeleteCredential(t *testing.T) {
+	cfg := newTestConfig(t).
+		withUserCredential("me").
+		build()
+
+	assert.True(t, cfg.DeleteCredential("me"))
+	assert.Empty(t, cfg.Credentials)
+	assert.False(t, cfg.DeleteCredential("me"))
+}
+
 func TestRenameContext(t *testing.T) {
 	cfg := newTestConfig(t).
 		withContext("old", "corp", "ci").
@@ -84,6 +104,74 @@ func TestRenameContext(t *testing.T) {
 	assert.True(t, cfg.RenameContext("old", "new"))
 	assert.Equal(t, "new", cfg.Contexts[0].Name)
 	assert.False(t, cfg.RenameContext("old", "other"))
+}
+
+func TestRenameTenant(t *testing.T) {
+	cfg := newTestConfig(t).
+		withTenant("corp").
+		build()
+
+	assert.True(t, cfg.RenameTenant("corp", "corporate"))
+	assert.Equal(t, "corporate", cfg.Tenants[0].Name)
+	assert.False(t, cfg.RenameTenant("corp", "other"))
+}
+
+func TestRenameCredential(t *testing.T) {
+	cfg := newTestConfig(t).
+		withUserCredential("ci").
+		build()
+
+	assert.True(t, cfg.RenameCredential("ci", "ci-sp"))
+	assert.Equal(t, "ci-sp", cfg.Credentials[0].Name)
+	assert.False(t, cfg.RenameCredential("ci", "other"))
+}
+
+func TestRetargetTenant(t *testing.T) {
+	cfg := newTestConfig(t).
+		withTenant("corp").
+		withUserCredential("ci").
+		withContext("dev", "corp", "ci").
+		withContext("prod", "corp", "ci").
+		withContext("other", "platform", "ci").
+		build()
+
+	assert.Equal(t, 2, cfg.RetargetTenant("corp", "corporate"))
+	assert.Equal(t, "corporate", cfg.Contexts[0].Details.Tenant)
+	assert.Equal(t, "corporate", cfg.Contexts[1].Details.Tenant)
+	assert.Equal(t, "platform", cfg.Contexts[2].Details.Tenant)
+}
+
+func TestRetargetCredential(t *testing.T) {
+	cfg := newTestConfig(t).
+		withUserCredential("ci").
+		withContext("dev", "corp", "ci").
+		withContext("prod", "corp", "other").
+		build()
+
+	assert.Equal(t, 1, cfg.RetargetCredential("ci", "ci-sp"))
+	assert.Equal(t, "ci-sp", cfg.Contexts[0].Details.Credential)
+	assert.Equal(t, "other", cfg.Contexts[1].Details.Credential)
+}
+
+func TestContextsReferencingTenant(t *testing.T) {
+	cfg := newTestConfig(t).
+		withContext("dev", "corp", "ci").
+		withContext("prod", "corp", "ci").
+		withContext("other", "platform", "ci").
+		build()
+
+	assert.Equal(t, []string{"dev", "prod"}, cfg.ContextsReferencingTenant("corp"))
+	assert.Nil(t, cfg.ContextsReferencingTenant("missing"))
+}
+
+func TestContextsReferencingCredential(t *testing.T) {
+	cfg := newTestConfig(t).
+		withContext("dev", "corp", "ci").
+		withContext("prod", "corp", "other").
+		build()
+
+	assert.Equal(t, []string{"dev"}, cfg.ContextsReferencingCredential("ci"))
+	assert.Nil(t, cfg.ContextsReferencingCredential("missing"))
 }
 
 func TestMerge(t *testing.T) {

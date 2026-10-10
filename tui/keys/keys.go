@@ -34,6 +34,10 @@ var (
 	Use      key.Binding = key.NewBinding(key.WithKeys("u"), key.WithHelp("u", "use"))
 	View     key.Binding = key.NewBinding(key.WithKeys("v"), key.WithHelp("v", "view"))
 	Describe key.Binding = key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "describe"))
+	Create   key.Binding = key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "new"))
+	Edit     key.Binding = key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "edit"))
+	Rename   key.Binding = key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "rename"))
+	Delete   key.Binding = key.NewBinding(key.WithKeys("ctrl+d"), key.WithHelp("ctrl+d", "delete"))
 )
 
 // Control keys

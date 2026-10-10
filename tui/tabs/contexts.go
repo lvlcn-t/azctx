@@ -78,6 +78,11 @@ func (t *ContextsTab) Filtering() bool {
 	return t.list.FilterState() == list.Filtering
 }
 
+// Reload rebuilds the context items from the current store.
+func (t *ContextsTab) Reload() {
+	t.list.SetItems(contextItems(t.state.Config()))
+}
+
 func (t *ContextsTab) View() string {
 	return t.list.View()
 }

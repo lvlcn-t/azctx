@@ -19,6 +19,10 @@ const (
 	Tabs
 	// DetailView is the overlay view showing details of a selected item.
 	DetailView
+	// FormView is the overlay view showing a create/edit form.
+	FormView
+	// ConfirmView is the overlay view prompting for delete confirmation.
+	ConfirmView
 	// Quitting is the state when the TUI is in the process of exiting.
 	Quitting
 )
